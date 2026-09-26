@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Internal Portal - Office Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li class="active"><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="document.html"><i class="fas fa-folder-open"></i> Document Store</a></li>
+                <li><a href="member-document-review.html"><i class="fas fa-users"></i> Member Documents</a></li>
+                <li><a href="applicants.html"><i class="fas fa-user-clock"></i> Applicant Log</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance and Enterprise</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+<main class="dashboard-main">
+    
+    <header class="main-header-portal">
+        <div class="header-title">
+            <h1>System Dashboard</h1>
+            <p>Welcome to the Miritini Response Team online operations desk.</p>
+        </div>
+        <div class="system-status">
+            <span class="status-indicator live"></span> Secure Server Online
+        </div>
+    </header>
+
+    <section class="metrics-grid">
+        <div class="metric-card">
+            <i class="fas fa-file-pdf icon-purple"></i>
+            <div>
+                <h3>14</h3>
+                <p>Stored Docs & Reports</p>
+            </div>
+        </div>
+        <div class="metric-card">
+            <i class="fas fa-images icon-green"></i>
+            <div>
+                <h3 id="galleryItemsCount">42</h3>
+                <p>Live Gallery Items</p>
+            </div>
+        </div>
+        <div class="metric-card">
+            <i class="fas fa-chart-bar icon-blue"></i>
+            <div>
+                <h3>4 Active</h3>
+                <p>Program Trackers</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="portal-workspace-grid">
+        
+        <section class="portal-box">
+            <h2><i class="fas fa-camera"></i> Live Website Gallery Manager</h2>
+            <p class="box-desc">Upload photos or link videos directly to the public website gallery.</p>
+            
+            <form id="galleryUploadForm" class="portal-form">
+                <div class="form-group-portal">
+                    <label>Media Type</label>
+                    <select id="media-type">
+                        <option value="image">📸 Photograph / Image File</option>
+                        <option value="video">🎥 Video File</option>
+                    </select>
+                </div>
+                <div class="form-group-portal">
+                    <label>Caption / Program Title</label>
+                    <input id="galleryCaption" type="text" placeholder="e.g. Tree Planting Drive - June 2026">
+                </div>
+                <div class="form-group-portal">
+                    <label>Category</label>
+                    <select id="galleryCategory">
+                        <option value="Environment">🌱 Environment</option>
+                        <option value="Emergency">🚨 Emergency</option>
+                        <option value="Clean-Up">🧹 Clean-Up</option>
+                        <option value="Health">❤️ Health</option>
+                        <option value="Members">👥 Members</option>
+                        <option value="Videos">🎥 Videos</option>
+                    </select>
+                </div>
+                <div class="form-group-portal">
+                    <label>Upload Photo / Video File</label>
+                    <input type="file" id="media-file" accept="image/*,video/*">
+                </div>
+                <button type="submit" class="action-btn-purple">Publish to Website Gallery</button>
+            </form>
+        </section>
+
+        <section class="portal-box">
+            <h2><i class="fas fa-chart-pie"></i> Impact Metrics & Analytics</h2>
+            <p class="box-desc">Visual summaries of organizational impact data.</p>
+            
+            <div class="chart-placeholder">
+                <i class="fas fa-chart-line graphic-icon"></i>
+                <p>Interactive impact graphs loading... [Chart.js Active]</p>
+                </div>
+        </section>
+
+    </div>
+
+    
+
+    </main>
+
+    </div>
+
+        <script src="portal-engine.js"></script>
+    </body>
+    </html>

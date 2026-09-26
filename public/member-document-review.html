@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Member Documents Review</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="document.html"><i class="fas fa-folder-open"></i> Document Store</a></li>
+                <li class="active"><a href="member-document-review.html"><i class="fas fa-folder-open"></i> Member Documents</a></li>
+                <li><a href="applicants.html"><i class="fas fa-user-clock"></i> Applicant Log</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>Member Document Archive</h1>
+                    <p>Each row represents a member upload bundle. No member can view files again once submitted here.</p>
+                </div>
+            </header>
+
+            <section class="document-vault-section">
+                <div class="vault-header">
+                    <div>
+                        <h2><i class="fas fa-user-check"></i> Member Submissions</h2>
+                        <p class="box-desc">Review the uploaded member documents and download them for processing.</p>
+                    </div>
+                    <div>
+                        <button class="action-btn-purple" onclick="loadMemberDocumentRegistry()"><i class="fas fa-sync"></i> Refresh List</button>
+                    </div>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="document-table" id="memberDocumentsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email / Member ID</th>
+                                <th>Submitted</th>
+                                <th>Required Documents</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="portal-box" id="memberDocumentDetails" style="display:none; margin-top: 30px;">
+                <div class="vault-header">
+                    <h2><i class="fas fa-file-alt"></i> Submission Details</h2>
+                    <button class="close-modal-btn" onclick="closeMemberDetails()">&times;</button>
+                </div>
+                <div id="memberDetailsContent"></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        function loadMemberDocumentRegistry() {
+            const tableBody = document.querySelector('#memberDocumentsTable tbody');
+            tableBody.innerHTML = '';
+            const documents = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
+
+            if (documents.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding: 20px;">No member document bundles have been submitted yet.</td></tr>';
+                return;
+            }
+
+            documents.forEach(doc => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${doc.memberName}</td>
+                    <td>${doc.memberEmail}</td>
+                    <td>${doc.submittedAt}</td>
+                    <td>
+                        <strong>ID card</strong><br>
+                        <strong>CV</strong><br>
+                        <strong>Certificates</strong><br>
+                        <strong>Passport Photo</strong><br>
+                        ${doc.files.otherDocs ? '<strong>Other docs</strong>' : ''}
+                    </td>
+                    <td>
+                        <button class="action-btn-purple" onclick="showMemberDocumentDetails(${doc.id})">View bundle</button>
+                        <button class="delete-row-btn" onclick="deleteMemberSubmission(${doc.id})" title="Delete Submission"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function showMemberDocumentDetails(id) {
+            const documents = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
+            const doc = documents.find(item => item.id === id);
+            if (!doc) return;
+
+            const details = document.getElementById('memberDetailsContent');
+            details.innerHTML = `
+                <div style="display:grid; gap: 16px;">
+                    <div><strong>Name:</strong> ${doc.memberName}</div>
+                    <div><strong>Email / ID:</strong> ${doc.memberEmail}</div>
+                    <div><strong>Submitted:</strong> ${doc.submittedAt}</div>
+                    <div><strong>Notes:</strong> ${doc.notes || 'None'}</div>
+                    <div><strong>Files available for download:</strong></div>
+                    <div style="display:grid; gap: 10px;">
+                        <a href="${doc.files.idCard.data}" download="${doc.files.idCard.name}" class="download-link"><i class="fas fa-id-card"></i> Download ID Card</a>
+                        <a href="${doc.files.cv.data}" download="${doc.files.cv.name}" class="download-link"><i class="fas fa-file-alt"></i> Download CV</a>
+                        <a href="${doc.files.certificates.data}" download="${doc.files.certificates.name}" class="download-link"><i class="fas fa-certificate"></i> Download Certificates</a>
+                        <a href="${doc.files.passportPhoto.data}" download="${doc.files.passportPhoto.name}" class="download-link"><i class="fas fa-camera"></i> Download Passport Photo</a>
+                        ${doc.files.otherDocs ? `<a href="${doc.files.otherDocs.data}" download="${doc.files.otherDocs.name}" class="download-link"><i class="fas fa-file"></i> Download Other Documents</a>` : ''}
+                    </div>
+                </div>
+            `;
+            document.getElementById('memberDocumentDetails').style.display = 'block';
+        }
+
+        function closeMemberDetails() {
+            document.getElementById('memberDocumentDetails').style.display = 'none';
+        }
+
+        function deleteMemberSubmission(id) {
+            if (!confirm('Permanently delete this member document bundle?')) return;
+            const documents = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
+            const filtered = documents.filter(doc => doc.id !== id);
+            localStorage.setItem('mrt_portal_member_documents', JSON.stringify(filtered));
+            loadMemberDocumentRegistry();
+            closeMemberDetails();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMemberDocumentRegistry();
+            const sessionUser = localStorage.getItem('mrt_active_session_user') || 'Authorized Officer';
+            const userHeading = document.querySelector('.sidebar-user h4');
+            if (userHeading) userHeading.innerText = sessionUser;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Operations Desk - System Settings</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="document.html"><i class="fas fa-folder-open"></i> Document Store</a></li>
+                <li><a href="member-document-review.html"><i class="fas fa-users"></i> Member Documents</a></li>
+                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance & Enterprise</a></li>
+                <li><a href="applicants.html"><i class="fas fa-user-clock"></i> Applicant Log</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li class="active"><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>System Settings & Configuration</h1>
+                    <p>Adjust localized parameters, manage public website flags, and maintain local data registries.</p>
+                </div>
+            </header>
+
+            <div class="portal-workspace-grid" style="grid-template-columns: 1fr 1fr;">
+                
+                <section class="portal-box">
+                    <h2><i class="fas fa-sliders-h"></i> Operational Parameters</h2>
+                    <p class="box-desc">Control what shows up live on your public community-facing pages.</p>
+                    
+                    <form id="settingsToggleForm">
+                        <div class="form-group-portal" style="margin-bottom: 20px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="emergencyBannerToggle" style="width: auto;">
+                                🚨 Activate Public Live Emergency Alert Banner
+                            </label>
+                            <span class="box-desc" style="display:block; margin-top:5px; margin-left:25px;">When checked, a high-priority red alert bar flashes at the top of your public website.</span>
+                        </div>
+
+                        <div class="form-group-portal">
+                            <label>Default Currency Profile</label>
+                            <select id="systemCurrency">
+                                <option value="KES">Kenyan Shilling (KES)</option>
+                                <option value="USD">US Dollar (USD)</option>
+                            </select>
+                        </div>
+
+                        <button type="button" onclick="saveSystemConfigs()" class="action-btn-purple">Apply Configurations</button>
+                    </form>
+                </section>
+
+                <section class="portal-box" style="border-color: #ff3b30; background: #fffbfb;">
+                    <h2 class="text-red"><i class="fas fa-database"></i> Database Registry Maintenance</h2>
+                    <p class="box-desc">Clear locally generated simulation fields to reload default mock states.</p>
+                    
+                    <div style="margin-top: 20px;">
+                        <p style="font-size: 13px; color: #444; margin-bottom: 15px;">
+                            If your tables are getting cluttered with test entries while developing, use these tools to restore individual modules instantly:
+                        </p>
+                        
+                        <button onclick="clearSpecificRegistry('sales')" class="action-btn-purple" style="background:#ff9500; margin-bottom: 10px;">
+                            <i class="fas fa-store"></i> Reset Business Sales Table
+                        </button>
+                        
+                        <button onclick="clearSpecificRegistry('expenses')" class="action-btn-purple" style="background:#ff9500; margin-bottom: 10px;">
+                            <i class="fas fa-file-invoice-dollar"></i> Reset Expenditures Table
+                        </button>
+                        
+                        <button onclick="clearSpecificRegistry('reports')" class="action-btn-purple" style="background:#ff3b30;">
+                            <i class="fas fa-trash"></i> Wipe All Filed Program Reports
+                        </button>
+                    </div>
+                </section>
+
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Load existing configurations from browser memory on initialization
+        document.addEventListener("DOMContentLoaded", function() {
+            const bannerState = localStorage.getItem('mrt_public_emergency_banner') === 'true';
+            document.getElementById('emergencyBannerToggle').checked = bannerState;
+            
+            const currencyState = localStorage.getItem('mrt_system_currency') || 'KES';
+            document.getElementById('systemCurrency').value = currencyState;
+        });
+
+        // Save Configurations
+        function saveSystemConfigs() {
+            const bannerChecked = document.getElementById('emergencyBannerToggle').checked;
+            const currencySelected = document.getElementById('systemCurrency').value;
+
+            localStorage.setItem('mrt_public_emergency_banner', bannerChecked);
+            localStorage.setItem('mrt_system_currency', currencySelected);
+
+            alert("System configuration updated! These switches will instantly control features when your public website modules hook in.");
+        }
+
+        // Targeted Module Wipe Out Tool
+        function clearSpecificRegistry(moduleType) {
+            if (confirm(`Are you sure you want to permanently empty the local testing registry for ${moduleType}? This cannot be undone.`)) {
+                if (moduleType === 'sales') {
+                    localStorage.removeItem('mrt_portal_sales');
+                } else if (moduleType === 'expenses') {
+                    localStorage.removeItem('mrt_portal_expenses');
+                } else if (moduleType === 'reports') {
+                    localStorage.removeItem('mrt_portal_filed_reports');
+                }
+                alert(`${moduleType.toUpperCase()} cache successfully cleared. Go back to that section to review the restored baseline defaults.`);
+            }
+        }
+
+  
+    </script>
+</body>
+</html>
+

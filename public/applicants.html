@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>MRT Operations Desk - Personnel Registration Vault</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="document.html"><i class="fas fa-folder-open"></i> Document Store</a></li>                <li><a href="member-document-review.html"><i class="fas fa-users"></i> Member Documents</a></li>                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance & Enterprise</a></li>
+                <li class="active"><a href="applicants.html"><i class="fas fa-user-clock"></i> Applicant Log</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Authorized Officer</h4>
+                        <p>Verified Session</p>
+                    </div>
+                </div>
+                <a href="#" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>Volunteer Applicant Registries</h1>
+                    <p>Review incoming community registrations, track associated Paybill clearances, and approve active field responder accounts.</p>
+                </div>
+            </header>
+
+            <div class="portal-workspace-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 25px; gap: 20px;">
+                <div class="portal-box" style="border-left: 4px solid #ff9500;">
+                    <span style="font-size: 12px; text-transform: uppercase; color: #666; font-weight: 600;">Pending Review</span>
+                    <h2 id="statPendingCount" style="font-size: 28px; margin-top: 5px; color: #333;">0</h2>
+                </div>
+                <div class="portal-box" style="border-left: 4px solid #1e88e5;">
+                    <span style="font-size: 12px; text-transform: uppercase; color: #666; font-weight: 600;">Paid & Awaiting Verification</span>
+                    <h2 id="statVerificationCount" style="font-size: 28px; margin-top: 5px; color: #1e88e5;">0</h2>
+                </div>
+                <div class="portal-box" style="border-left: 4px solid #2e7d32;">
+                    <span style="font-size: 12px; text-transform: uppercase; color: #666; font-weight: 600;">Approved Active Members</span>
+                    <h2 id="statApprovedCount" style="font-size: 28px; margin-top: 5px; color: #2e7d32;">0</h2>
+                </div>
+                <div class="portal-box" style="border-left: 4px solid #5c2d91;">
+                    <span style="font-size: 12px; text-transform: uppercase; color: #666; font-weight: 600;">Total Collected Fees</span>
+                    <h2 id="statTotalFeesCollected" style="font-size: 28px; margin-top: 5px; color: #5c2d91;">KES 0</h2>
+                </div>
+            </div>
+
+            <section class="portal-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f4f0fa; padding-bottom: 15px;">
+                    <h2><i class="fas fa-list-alt"></i> Verification Queues</h2>
+                    <button onclick="loadApplicantsRegistry()" class="action-btn-purple" style="padding: 6px 14px; font-size: 12px;"><i class="fas fa-sync"></i> Refresh Records</button>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #f4f0fa; color: #444; border-bottom: 2px solid #e1dbec;">
+                                <th style="padding: 12px;">Date</th>
+                                <th style="padding: 12px;">Applicant Details</th>
+                                <th style="padding: 12px;">Allocated Account No.</th>
+                                <th style="padding: 12px;">Primary Pillar</th>
+                                <th style="padding: 12px;">M-Pesa Reference</th>
+                                <th style="padding: 12px;">Status</th>
+                                <th style="padding: 12px; text-align: center;">Operational Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="applicantsTableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="passwordEmailModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); position: relative;">
+            <button type="button" onclick="closePasswordEmailModal()" style="position: absolute; top: 18px; right: 18px; background: none; border: none; font-size: 24px; color: #444; cursor: pointer;">&times;</button>
+            <h2 style="margin: 0 0 12px; font-size: 22px; color: #222;"><i class="fas fa-envelope-open-text"></i> Simulated Password Setup Email</h2>
+            <p style="margin: 0 0 18px; color: #555; line-height: 1.6;">This email has been sent to the member after verification. It contains a unique password setup link and instructions.</p>
+            <div style="background: #f8f8ff; border: 1px solid #e5e5f5; border-radius: 10px; padding: 18px; margin-bottom: 16px;">
+                <p style="margin: 0 0 10px; font-size: 13px; color: #777;"><strong>To:</strong> <span id="emailRecipientText"></span></p>
+                <p style="margin: 0 0 10px; font-size: 13px; color: #777;"><strong>Subject:</strong> Set your MRT account password</p>
+                <div style="background: #fff; border: 1px solid #dde2f9; border-radius: 8px; padding: 15px; color: #333; font-size: 14px; line-height: 1.7;">
+                    <p>Dear <span id="emailRecipientName"></span>,</p>
+                    <p>This email has been sent to <strong><span id="emailRecipientText"></span></strong>. Please set your account password by clicking the button below or visiting the link.</p>
+                    <p style="margin: 10px 0;"><a id="passwordSetupLink" href="#" style="display: inline-block; background: #1e88e5; color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none;">Set Your Password</a></p>
+                    <p style="font-size: 13px; color: #555; margin-bottom: 0;"><strong>Token:</strong> <span id="passwordSetupTokenText"></span></p>
+                    <p style="font-size: 13px; color: #555; margin-top: 12px;">If the button does not work, copy and paste the link into your browser.</p>
+                </div>
+            </div>
+            <button type="button" onclick="copyPasswordSetupLink()" style="background: #5c2d91; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer;">Copy Link</button>
+            <button type="button" onclick="sendPasswordSetupEmailFromModal()" style="margin-left: 10px; background: #1e88e5; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer;">Send Password Email</button>
+            <span id="passwordLinkCopied" style="margin-left: 12px; color: #2e7d32; font-size: 13px; display: none;">Link copied!</span>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Personalized dynamic staff username display template hook
+            const sessionUser = localStorage.getItem('mrt_active_session_user') || 'Authorized Officer';
+            const userHeading = document.querySelector(".sidebar-user h4");
+            if (userHeading) userHeading.innerText = sessionUser;
+
+            loadApplicantsRegistry();
+        });
+
+        function loadApplicantsRegistry() {
+            const tableBody = document.getElementById('applicantsTableBody');
+            if (!tableBody) return;
+
+            // Fetch incoming applications data array
+            const applicants = JSON.parse(localStorage.getItem('mrt_public_applications')) || [];
+            
+            // Core counter metrics tracking references
+            let pendingCount = 0;
+            let verificationCount = 0;
+            let approvedCount = 0;
+            let totalFees = 0;
+
+            tableBody.innerHTML = ''; // Wipe out existing workspace placeholders
+
+            if (applicants.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: #888; font-style: italic;">No volunteer applications found inside the local workspace registry.</td></tr>`;
+                updateStatDisplays(0, 0, 0, 0);
+                return;
+            }
+
+            applicants.forEach((user, index) => {
+                // Tallying totals for tracking cards
+                if (user.status === 'Pending Review') pendingCount++;
+                if (user.status === 'Awaiting Verification' || user.status === 'Password Setup Email Sent') verificationCount++;
+                if (user.status === 'Approved Active') approvedCount++;
+                if (user.paymentStatus === 'Paid') totalFees += 500;
+
+                // Color coding tags mapping arrays
+                let statusText = user.status || 'Pending Review';
+                let statusColor = '#ff9500';
+                if (user.status === 'Approved Active') {
+                    statusColor = '#2e7d32';
+                } else if (user.status === 'Awaiting Verification') {
+                    statusText = 'Awaiting Verification';
+                    statusColor = '#1e88e5';
+                } else if (user.status === 'Password Setup Email Sent') {
+                    statusText = 'Password Setup Email Sent';
+                    statusColor = '#1e88e5';
+                } else if (user.paymentStatus === 'Paid') {
+                    statusText = 'Payment Completed';
+                    statusColor = '#1e88e5';
+                }
+                
+                const tableRow = document.createElement('tr');
+                tableRow.style.borderBottom = '1px solid #eee';
+                
+                tableRow.innerHTML = `
+                    <td style="padding: 12px; color: #666;">${user.dateSubmitted}</td>
+                    <td style="padding: 12px;">
+                        <strong>${user.name}</strong><br>
+                        <span style="font-size: 12px; color:#555;"><i class="fas fa-phone"></i> ${user.phone}</span><br>
+                        <span style="font-size: 12px; color:#555;"><i class="fas fa-envelope"></i> ${user.email || 'No email provided'}</span>
+                    </td>
+                    <td style="padding: 12px;"><code style="background: #f4f0fa; padding: 3px 6px; border-radius: 4px; font-weight: bold; color: #5c2d91;">${user.accountNumber}</code></td>
+                    <td style="padding: 12px; font-size: 13px;">${user.pillar}</td>
+                    <td style="padding: 12px;">
+                        <span style="color:#2e7d32; font-weight:600;"><i class="fas fa-check-circle"></i> ${user.mpesaRef || 'N/A'}</span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span style="color: ${statusColor}; font-weight: bold; font-size: 13px;">${statusText}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                        ${user.status === 'Pending Review' ? 
+                            `<button onclick="approveApplicant(${index})" class="action-btn-purple" style="background: #2e7d32; padding: 5px 10px; font-size: 12px;"><i class="fas fa-user-check"></i> Approve Deployment</button>` : 
+                            (user.status === 'Awaiting Verification' ?
+                                `<button onclick="verifyApplicant(${index})" class="action-btn-purple" style="background: #1e88e5; padding: 5px 10px; font-size: 12px;"><i class="fas fa-paper-plane"></i> Send Password Email</button>` :
+                                (user.status === 'Password Setup Email Sent' ?
+                                    `<span style="color: #1e88e5; font-size: 12px;"><i class="fas fa-envelope"></i> Email Sent</span>` :
+                                    `<span style="color: #666; font-size: 12px;"><i class="fas fa-shield-alt"></i> Active Responder</span>`)
+                            )
+                        }
+                    </td>
+                `;
+                tableBody.appendChild(tableRow);
+            });
+
+            updateStatDisplays(pendingCount, verificationCount, approvedCount, totalFees);
+        }
+
+        const EMAILJS_SERVICE_ID = 'YOUR_EMAILJS_SERVICE_ID';
+        const EMAILJS_TEMPLATE_PASSWORD_SETUP = 'YOUR_EMAILJS_TEMPLATE_PASSWORD_SETUP';
+        const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY';
+        const EMAILJS_FROM_EMAIL = 'miritiniresponset@gmail.com';
+
+        function initEmailJS() {
+            if (window.emailjs && !window.emailjs.__initialized) {
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+                window.emailjs.__initialized = true;
+            }
+        }
+
+        function emailJsConfigured() {
+            return EMAILJS_SERVICE_ID !== 'YOUR_EMAILJS_SERVICE_ID' &&
+                EMAILJS_TEMPLATE_PASSWORD_SETUP !== 'YOUR_EMAILJS_TEMPLATE_PASSWORD_SETUP' &&
+                EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY';
+        }
+
+        function sendEmail(templateId, templateParams) {
+            if (!emailJsConfigured()) {
+                alert('EmailJS is not configured. Replace placeholder values in the script with your EmailJS service ID, template ID, and public key.');
+                return Promise.reject(new Error('EmailJS configuration missing'));
+            }
+            initEmailJS();
+            if (!window.emailjs) {
+                alert('EmailJS is not loaded. Please ensure the emailjs-com script is included.');
+                return Promise.reject(new Error('EmailJS not loaded'));
+            }
+            return emailjs.send(EMAILJS_SERVICE_ID, templateId, templateParams)
+                .then(response => {
+                    console.log('Email sent', response);
+                    return response;
+                })
+                .catch(error => {
+                    console.error('Email delivery failed', error);
+                    alert('Email delivery failed. Check the console for details.');
+                    throw error;
+                });
+        }
+
+        function updateStatDisplays(pending, verification, approved, cash) {
+            document.getElementById('statPendingCount').innerText = pending;
+            document.getElementById('statVerificationCount').innerText = verification;
+            document.getElementById('statApprovedCount').innerText = approved;
+            document.getElementById('statTotalFeesCollected').innerText = "KES " + cash;
+        }
+
+        // Operational approval action function updates global state array index
+        function approveApplicant(index) {
+            const applicants = JSON.parse(localStorage.getItem('mrt_public_applications')) || [];
+            
+            if (applicants[index]) {
+                if (confirm(`Confirm entry for ${applicants[index].name} into the active MRT field responder register?`)) {
+                    applicants[index].status = 'Approved Active';
+                    localStorage.setItem('mrt_public_applications', JSON.stringify(applicants));
+                    
+                    alert("Personnel profile status successfully verified and deployed.");
+                    loadApplicantsRegistry();
+                }
+            }
+        }
+
+        function verifyApplicant(index) {
+            const applicants = JSON.parse(localStorage.getItem('mrt_public_applications')) || [];
+            if (applicants[index]) {
+                const recipientEmail = applicants[index].email || applicants[index].name || 'registered member';
+                if (confirm(`Send password setup email to ${recipientEmail}?`)) {
+                    applicants[index].status = 'Password Setup Email Sent';
+                    applicants[index].passwordSetupEmailSent = true;
+                    applicants[index].passwordSetupToken = 'SET-' + Math.floor(100000 + Math.random() * 900000);
+                    const setupUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, 'member-document-upload.html') + `?token=${applicants[index].passwordSetupToken}`;
+                    localStorage.setItem('mrt_public_applications', JSON.stringify(applicants));
+                    openPasswordEmailModal(applicants[index], setupUrl);
+                    sendPasswordSetupEmail(applicants[index].email, applicants[index].name, setupUrl, applicants[index].passwordSetupToken)
+                        .then(() => {
+                            console.log('Password setup email sent via EmailJS.');
+                        })
+                        .catch(() => {
+                            console.warn('Password setup email failed to send.');
+                        });
+                    loadApplicantsRegistry();
+                }
+            }
+        }
+
+        function openPasswordEmailModal(applicant, link) {
+            document.getElementById('emailRecipientText').innerText = applicant.email || applicant.name;
+            document.getElementById('emailRecipientName').innerText = applicant.name;
+            document.getElementById('passwordSetupTokenText').innerText = applicant.passwordSetupToken;
+            const passwordLink = document.getElementById('passwordSetupLink');
+            passwordLink.href = link;
+            passwordLink.innerText = 'Set Your Password';
+            document.getElementById('passwordEmailModal').style.display = 'flex';
+            document.getElementById('passwordLinkCopied').style.display = 'none';
+        }
+
+        function copyPasswordSetupLink() {
+            const passwordLink = document.getElementById('passwordSetupLink').href;
+            navigator.clipboard.writeText(passwordLink).then(() => {
+                const copiedText = document.getElementById('passwordLinkCopied');
+                copiedText.style.display = 'inline';
+            });
+        }
+
+        function sendPasswordSetupEmail(recipient, recipientName, setupLink, token) {
+            if (!recipient || recipient.indexOf('@') === -1) {
+                alert('A valid member email address is required to send the password setup email.');
+                return Promise.reject(new Error('Invalid email'));
+            }
+            return sendEmail(EMAILJS_TEMPLATE_PASSWORD_SETUP, {
+                from_email: EMAILJS_FROM_EMAIL,
+                to_email: recipient,
+                to_name: recipientName,
+                setup_link: setupLink,
+                token: token
+            }).then(() => {
+                alert('Password setup email sent successfully.');
+            });
+        }
+
+        function closePasswordEmailModal() {
+            document.getElementById('passwordEmailModal').style.display = 'none';
+        }
+
+        function sendPasswordSetupEmailFromModal() {
+            const recipient = document.getElementById('emailRecipientText').innerText;
+            const recipientName = document.getElementById('emailRecipientName').innerText || 'Member';
+            const setupLink = document.getElementById('passwordSetupLink').href;
+            const token = document.getElementById('passwordSetupTokenText').innerText;
+            return sendPasswordSetupEmail(recipient, recipientName, setupLink, token);
+        }
+
+    </script>
+</body>
+</html>
+

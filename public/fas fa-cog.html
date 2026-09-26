@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Operations Desk - Program Reports</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="dashboard.html"><i class="fas fa-folder-open"></i> Document Store</a></li>
+                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance & Enterprise</a></li>
+                <li><a href="#"><i class="fas fa-users"></i> Personnel Log</a></li>
+                <li class="active"><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>Program & Incident Reports</h1>
+                    <p>File official records for community activities and field emergency events.</p>
+                </div>
+            </header>
+
+            <div class="portal-workspace-grid" style="margin-bottom: 30px; grid-template-columns: 1fr 1fr;">
+                
+                <div class="portal-box report-trigger-box" onclick="toggleReportForm('activity')">
+                    <i class="fas fa-clipboard-list icon-large purple-text"></i>
+                    <h3>Lean Activity Report</h3>
+                    <p>File metrics, community reach parameters, and takeaways for organized field exercises.</p>
+                </div>
+
+                <div class="portal-box report-trigger-box" onclick="toggleReportForm('incident')">
+                    <i class="fas fa-exclamation-triangle icon-large red-text"></i>
+                    <h3>Incident Report Form</h3>
+                    <p>Document field emergencies, response deployments, security issues, or community hazards.</p>
+                </div>
+
+            </div>
+
+            <section class="portal-box" id="reportFormContainer" style="display: none; margin-bottom: 30px;">
+                <div class="vault-header">
+                    <h2 id="dynamicFormTitle"><i class="fas fa-file-alt"></i> Report Form Editor</h2>
+                    <button class="close-modal-btn" onclick="hideReportForm()">&times;</button>
+                </div>
+
+                <form id="mrtActiveReportingForm">
+                    <input type="hidden" id="activeFormType">
+                    <div id="dynamicFormFields"></div>
+                    <button type="submit" class="action-btn-purple" style="margin-top: 20px;">File Report to Registry</button>
+                </form>
+            </section>
+
+            <section class="document-vault-section">
+                <h2><i class="fas fa-archive"></i> Submitted Reports Register Registry</h2>
+                <p class="box-desc" style="margin-bottom: 15px;">Active database of verified organization filings.</p>
+                <table class="document-table" id="reportsRegistryTable">
+                    <thead>
+                        <tr>
+                            <th>Report Ref / Title</th>
+                            <th>Type</th>
+                            <th>Date Filed</th>
+                            <th>Filed By</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="reports-engine.js"></script>
+</body>
+</html>

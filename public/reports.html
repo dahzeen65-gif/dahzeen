@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Operations Desk - Program Reports</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="document.html"><i class="fas fa-folder-open"></i> Document Store</a></li>
+                <li><a href="member-document-review.html"><i class="fas fa-users"></i> Member Documents</a></li>
+                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance & Enterprise</a></li>
+                <li><a href="applicants.html"><i class="fas fa-user-clock"></i> Applicant Log</a></li>
+                <li class="active"><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>Program & Incident Reports</h1>
+                    <p>File official records for community activities and field emergency events.</p>
+                </div>
+            </header>
+
+            <div class="portal-workspace-grid" style="margin-bottom: 30px; grid-template-columns: 1fr 1fr;">
+                
+                <div class="portal-box report-trigger-box" onclick="toggleReportForm('activity')">
+                    <i class="fas fa-clipboard-list icon-large purple-text"></i>
+                    <h3>Lean Activity Report</h3>
+                    <p>File metrics, community reach parameters, and takeaways for organized field exercises.</p>
+                </div>
+
+                <div class="portal-box report-trigger-box" onclick="toggleReportForm('incident')">
+                    <i class="fas fa-exclamation-triangle icon-large red-text"></i>
+                    <h3>Incident Report Form</h3>
+                    <p>Document field emergencies, response deployments, security issues, or community hazards.</p>
+                </div>
+
+            </div>
+
+            <section class="portal-box" id="reportFormContainer" style="display: none; margin-bottom: 30px;">
+                <div class="vault-header">
+                    <h2 id="dynamicFormTitle"><i class="fas fa-file-alt"></i> Report Form Editor</h2>
+                    <button class="close-modal-btn" onclick="hideReportForm()">&times;</button>
+                </div>
+
+                <form id="mrtActiveReportingForm">
+                    <input type="hidden" id="activeFormType">
+                    <div id="dynamicFormFields"></div>
+                    <button type="submit" class="action-btn-purple" style="margin-top: 20px;">File Report to Registry</button>
+                </form>
+            </section>
+
+            <section class="document-vault-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2><i class="fas fa-archive"></i> Submitted Reports Register</h2>
+                        <p class="box-desc">Active database of verified organization filings.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="action-btn-purple" onclick="printReports()" title="Print Reports">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                        <button class="action-btn-purple" onclick="downloadReportsAsJSON()" title="Download as JSON">
+                            <i class="fas fa-download"></i> JSON
+                        </button>
+                        <button class="action-btn-purple" onclick="downloadReportsAsCSV()" title="Download as CSV">
+                            <i class="fas fa-download"></i> CSV
+                        </button>
+                    </div>
+                </div>
+                <table class="document-table" id="reportsRegistryTable">
+                    <thead>
+                        <tr>
+                            <th>Report Ref / Title</th>
+                            <th>Type</th>
+                            <th>Date Filed</th>
+                            <th>Filed By</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </section>
+
+            <section class="document-vault-section" style="margin-top: 40px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2><i class="fas fa-calendar-alt"></i> Program Schedule</h2>
+                        <p class="box-desc">Manage and track upcoming programs and activities.</p>
+                    </div>
+                    <button class="action-btn-purple" onclick="toggleProgramForm()" title="Add New Program">
+                        <i class="fas fa-plus"></i> Schedule Program
+                    </button>
+                </div>
+
+                <section class="portal-box" id="programFormContainer" style="display: none; margin-bottom: 30px;">
+                    <div class="vault-header">
+                        <h2><i class="fas fa-calendar-check"></i> Schedule New Program</h2>
+                        <button class="close-modal-btn" onclick="hideProgramForm()">&times;</button>
+                    </div>
+
+                    <form id="programForm" onsubmit="handleProgramFormSubmission(event)">
+                        <div id="programFormFields">
+                            <div class="form-group">
+                                <label for="programDate">Program Date *</label>
+                                <input type="date" id="programDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="programVenue">Venue *</label>
+                                <input type="text" id="programVenue" placeholder="e.g., Community Center, Kwajumba Hall" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="programActivityType">Type of Activity *</label>
+                                <select id="programActivityType" required>
+                                    <option value="">Select activity type...</option>
+                                    <option value="Training">Training</option>
+                                    <option value="Workshop">Workshop</option>
+                                    <option value="Community Outreach">Community Outreach</option>
+                                    <option value="Meeting">Meeting</option>
+                                    <option value="Fundraiser">Fundraiser</option>
+                                    <option value="Event">Event</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="programPeopleInCharge">People In Charge *</label>
+                                <input type="text" id="programPeopleInCharge" placeholder="Names of responsible persons" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="programItemsNeeded">Items Needed</label>
+                                <textarea id="programItemsNeeded" placeholder="e.g., Chairs, tables, projector, registration forms..." rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="programCost">Estimated Cost (KES)</label>
+                                <input type="number" id="programCost" placeholder="0" min="0" step="100" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="programNotes">Additional Notes</label>
+                                <textarea id="programNotes" placeholder="Any other relevant information..." rows="3"></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" class="action-btn-purple" style="margin-top: 20px;">Schedule Program</button>
+                    </form>
+                </section>
+
+                <table class="document-table" id="programsScheduleTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Venue</th>
+                            <th>Activity Type</th>
+                            <th>People In Charge</th>
+                            <th>Items Needed</th>
+                            <th>Estimated Cost</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="portal-engine.js"></script>
+</body>
+</html>

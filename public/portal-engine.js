@@ -233,6 +233,39 @@ function generateLiveCalendar() {
 document.addEventListener("DOMContentLoaded", function() {
     showCookieConsentBanner();
 
+    const sidebar = document.querySelector('.dashboard-sidebar');
+    const mainHeader = document.querySelector('.main-header-portal');
+    if (sidebar && mainHeader) {
+        const existingToggle = document.querySelector('.mobile-sidebar-toggle');
+        if (!existingToggle) {
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'mobile-sidebar-toggle';
+            toggle.setAttribute('aria-label', 'Toggle portal menu');
+            toggle.setAttribute('title', 'Toggle menu');
+            toggle.innerHTML = '<i class="fas fa-bars"></i>';
+            mainHeader.insertBefore(toggle, mainHeader.firstChild);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'mobile-sidebar-overlay';
+            document.body.appendChild(overlay);
+
+            toggle.addEventListener('click', function() {
+                document.body.classList.toggle('sidebar-open');
+            });
+
+            overlay.addEventListener('click', function() {
+                document.body.classList.remove('sidebar-open');
+            });
+
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) {
+                    document.body.classList.remove('sidebar-open');
+                }
+            });
+        }
+    }
+
     // 1. Bind form submissions safely
     const form = document.getElementById("portalEntryForm");
     if (form) {

@@ -1838,15 +1838,25 @@ border-radius:20px;
 
     .dashboard-container {
         display: block;
+        position: relative;
     }
 
     .dashboard-sidebar {
-        width: 82px;
-        min-width: 82px;
-        padding: 18px 10px;
-        position: sticky;
+        width: 260px;
+        min-width: 260px;
+        padding: 18px 14px;
+        position: fixed;
+        left: 0;
         top: 0;
-        z-index: 30;
+        bottom: 0;
+        z-index: 50;
+        transform: translateX(-102%);
+        transition: transform 0.28s ease;
+        box-shadow: 8px 0 18px rgba(0, 0, 0, 0.25);
+    }
+
+    body.sidebar-open .dashboard-sidebar {
+        transform: translateX(0);
     }
 
     .sidebar-brand {
@@ -1867,10 +1877,10 @@ border-radius:20px;
     }
 
     .sidebar-menu li a {
-        justify-content: center;
-        gap: 0;
-        padding: 12px 8px;
-        font-size: 0;
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 12px 12px;
+        font-size: 14px;
         white-space: nowrap;
     }
 
@@ -1880,25 +1890,35 @@ border-radius:20px;
     }
 
     .user-info {
-        justify-content: center;
+        justify-content: flex-start;
     }
 
     .user-info > div,
-    .user-info p,
-    .logout-btn {
-        display: none;
+    .user-info p {
+        display: block;
     }
 
     .logout-btn {
-        display: flex;
+        display: block;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .mobile-sidebar-toggle {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 8px;
-        font-size: 0;
-    }
-
-    .logout-btn i {
+        width: 42px;
+        height: 42px;
+        border: 1px solid #e7e7e7;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111111;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        cursor: pointer;
         font-size: 18px;
+        margin-right: 12px;
+        flex-shrink: 0;
     }
 
     .dashboard-main {
@@ -1906,8 +1926,9 @@ border-radius:20px;
     }
 
     .main-header-portal {
-        flex-direction: column;
-        align-items: flex-start;
+        display: flex;
+        align-items: center;
+        flex-direction: row;
         gap: 12px;
         padding-right: 72px;
     }
@@ -1950,6 +1971,18 @@ border-radius:20px;
 
     .portal-box {
         padding: 20px 16px;
+    }
+
+    .mobile-sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 17, 17, 0.4);
+        z-index: 40;
+        display: none;
+    }
+
+    body.sidebar-open .mobile-sidebar-overlay {
+        display: block;
     }
 }
 

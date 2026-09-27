@@ -1822,7 +1822,7 @@ border-radius:20px;
 /* RESPONSIVE PORTAL STYLES */
 @media (max-width: 992px) {
     .metrics-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .main-header-portal {
         flex-direction: column;
@@ -1964,7 +1964,8 @@ border-radius:20px;
     }
 
     .metrics-grid {
-        gap: 18px;
+        gap: 16px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .metric-card {
@@ -2136,11 +2137,27 @@ border-radius:20px;
 
 @media (max-width: 560px) {
     .portal-workspace-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .metrics-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric-card {
+        padding: 14px 12px;
+    }
+
+    .metric-card i {
+        font-size: 22px;
+    }
+
+    .metric-card h3 {
+        font-size: 18px;
+    }
+
+    .metric-card p {
+        font-size: 11px;
     }
 }
 

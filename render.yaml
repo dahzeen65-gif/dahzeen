@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: mrt1-app
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MRT_ADMIN_PASSWORD
+        generateValue: true
+      - key: MRT_VAULT_PIN
+        value: "2026"

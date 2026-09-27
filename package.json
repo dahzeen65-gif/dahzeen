@@ -2,16 +2,21 @@
   "name": "mrt1",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host",
+    "start": "node server.js"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

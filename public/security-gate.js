@@ -12,17 +12,42 @@
         return;
     }
 
-    const token = localStorage.getItem('mrt_auth_token');
-    const user = localStorage.getItem('mrt_active_session_user');
+    const redirectToLogin = (message = 'Session locked. Please sign in again with your username and password.') => {
+        alert(message);
+        fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+        }).finally(() => {
+            window.location.replace('portal-login.html');
+        });
+    };
 
-    if (!token || !user) {
-        alert('Session locked. Please sign in again with your username and password.');
-        window.location.href = 'portal-login.html';
+    async function verifySession() {
+        try {
+            const response = await fetch('/api/auth/session', { credentials: 'include' });
+            if (!response.ok) {
+                throw new Error('Session invalid');
+            }
+        } catch (error) {
+            redirectToLogin();
+        }
     }
+
+    verifySession();
+
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            verifySession();
+        }
+    });
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            verifySession();
+        }
+    });
+
+    window.addEventListener('popstate', function() {
+        verifySession();
+    });
 })();
-
-
-if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('authToken');
-    // run gate logic
-}

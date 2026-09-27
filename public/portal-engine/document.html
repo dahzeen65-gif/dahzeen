@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Operations Desk - Document Repository</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li class="active"><a href="document.html"><i class="fas fa-folder-open"></i> Document Repository</a></li>
+                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance & Enterprise</a></li>
+                <li><a href="#"><i class="fas fa-users"></i> Personnel Log</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+        <main class="dashboard-main">
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>Organizational Document Repository</h1>
+                    <p>Central store for policies, SOPs, meeting minutes, contracts, templates, reports and media.</p>
+                </div>
+            </header>
+
+            <!-- Quick actions -->
+            <section class="portal-workspace-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                <div class="portal-box">
+                    <h3><i class="fas fa-file-contract"></i> Policies & Governance</h3>
+                    <p class="box-desc">Upload and manage organizational policies and governance documents.</p>
+                </div>
+                <div class="portal-box">
+                    <h3><i class="fas fa-cogs"></i> Standard Operating Procedures (SOPs)</h3>
+                    <p class="box-desc">Centralized procedures for operations and field teams.</p>
+                </div>
+                <div class="portal-box">
+                    <h3><i class="fas fa-handshake"></i> Contracts & Agreements</h3>
+                    <p class="box-desc">Store signed contracts and vendor agreements.</p>
+                </div>
+            </section>
+
+            
+            <!-- Meeting minutes -->
+            <section class="document-vault-section" style="margin-top: 24px;">
+                <div class="vault-header">
+                    <div>
+                        <h2><i class="fas fa-clipboard"></i> Meeting Minutes</h2>
+                        <p class="box-desc">Minutes from management and stakeholder meetings.</p>
+                    </div>
+                    <div>
+                        <button class="action-btn-purple" onclick="openDocumentUploadModal('minutes')"><i class="fas fa-upload"></i> Upload Minutes</button>
+                    </div>
+                </div>
+                <table class="document-table" id="minutesTable">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Venue</th>
+                            <th>Attendees</th>
+                            <th>Agenda</th>
+                            <th>Uploaded By</th>
+                            <th>Action</th> <th style="width: 120px;">Management</th>
+                        </tr>
+                    </thead>
+                    <tbody id="minutesTableBody"></tbody>
+                </table>
+            </section>
+
+            <!-- Existing reports & programs (kept for integration) -->
+            <section class="document-vault-section" style="margin-top: 30px;">
+                <div class="vault-header">
+                    <div>
+                        <h2><i class="fas fa-file-alt"></i> Filed Reports</h2>
+                        <p class="box-desc">Activity and incident reports submitted across the portal.</p>
+                    </div>
+                </div>
+
+                <table class="document-table" id="documentsReportsTable">
+                    <thead>
+                        <tr>
+                            <th>Date Filed</th>
+                            <th>Type</th>
+                            <th>Title</th>
+                            <th>Filed By</th>
+                            <th>Report Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </section>
+
+            <section class="document-vault-section" style="margin-top: 30px;">
+                <div class="vault-header">
+                    <div>
+                        <h2><i class="fas fa-calendar-alt"></i> Scheduled Programs</h2>
+                        <p class="box-desc">Programs and events scheduled from the portal.</p>
+                    </div>
+                </div>
+
+                <table class="document-table" id="documentsProgramsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Venue</th>
+                            <th>Activity Type</th>
+                            <th>People In Charge</th>
+                            <th>Items Needed</th>
+                            <th>Cost</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </section>
+
+            <!-- Member Documents Database -->
+            <section class="document-vault-section" style="margin-top: 30px;">
+                <div class="vault-header">
+                    <div>
+                        <h2><i class="fas fa-users"></i> Member Documents Database</h2>
+                        <p class="box-desc">Each member has their own row in the secure Vault. Documents are stored here and member uploaders cannot view them after submission.</p>
+                    </div>
+                    <div>
+                        <button class="action-btn-purple" onclick="renderMemberDocumentsTable()"><i class="fas fa-sync"></i> Refresh</button>
+                        <a href="member-document-review.html" class="action-btn-purple" style="margin-left: 10px;"><i class="fas fa-arrow-right"></i> Review Member Documents</a>
+                        <button class="action-btn-purple" onclick="copyMemberUploadLink()" style="margin-left: 10px;"><i class="fas fa-link"></i> Copy Upload Link</button>
+                    </div>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="document-table" id="memberDocumentsTable">
+                        <thead>
+                            <tr>
+                                <th>Member Name</th>
+                                <th>Email / ID</th>
+                                <th>Submitted At</th>
+                                <th>Documents</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="portal-box" id="memberDocumentDetails" style="display:none; margin-top: 30px;">
+                <div class="vault-header">
+                    <h2><i class="fas fa-file-alt"></i> Member Submission Details</h2>
+                    <button class="close-modal-btn" onclick="closeMemberDetails()">&times;</button>
+                </div>
+                <div id="memberDetailsContent" style="line-height: 1.7; color: #333;"></div>
+            </section>
+
+            <!-- Media Store -->
+            <section class="document-vault-section" style="margin-top: 30px;">
+                <div class="vault-header">
+                    <div>
+                        <h2><i class="fas fa-image"></i> Site Media Store</h2>
+                        <p class="box-desc">Browse all uploaded gallery images and videos used across the website.</p>
+                    </div>
+                </div>
+
+                <div id="documentsMediaGrid" class="gallery-grid"></div>
+            </section>
+
+            <!-- Edit modals (kept intact) -->
+            <section class="portal-box" id="editReportContainer" style="display:none; margin-top: 30px;">
+                <div class="vault-header">
+                    <h2><i class="fas fa-edit"></i> Edit Report</h2>
+                    <button class="close-modal-btn" onclick="closeEditReportForm()">&times;</button>
+                </div>
+                <form id="editReportForm">
+                    <input type="hidden" id="editReportId">
+                    <input type="hidden" id="editReportType">
+                    <div id="editReportFields"></div>
+                    <button type="submit" class="action-btn-purple" style="margin-top: 20px;">Save Report Changes</button>
+                </form>
+            </section>
+
+            <section class="portal-box" id="editProgramContainer" style="display:none; margin-top: 30px;">
+                <div class="vault-header">
+                    <h2><i class="fas fa-edit"></i> Edit Scheduled Program</h2>
+                    <button class="close-modal-btn" onclick="closeEditProgramForm()">&times;</button>
+                </div>
+                <form id="editProgramForm">
+                    <input type="hidden" id="editProgramId">
+                    <div class="form-group">
+                        <label for="editProgramDate">Program Date *</label>
+                        <input type="date" id="editProgramDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProgramVenue">Venue *</label>
+                        <input type="text" id="editProgramVenue" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProgramActivityType">Type of Activity *</label>
+                        <select id="editProgramActivityType" required>
+                            <option value="Training">Training</option>
+                            <option value="Workshop">Workshop</option>
+                            <option value="Community Outreach">Community Outreach</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Fundraiser">Fundraiser</option>
+                            <option value="Event">Event</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProgramPeopleInCharge">People In Charge *</label>
+                        <input type="text" id="editProgramPeopleInCharge" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProgramItemsNeeded">Items Needed</label>
+                        <textarea id="editProgramItemsNeeded" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProgramCost">Estimated Cost (KES)</label>
+                        <input type="number" id="editProgramCost" min="0" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="editProgramNotes">Additional Notes</label>
+                        <textarea id="editProgramNotes" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="action-btn-purple" style="margin-top: 20px;">Save Program Changes</button>
+                </form>
+            </section>
+
+            <!-- Document upload modal -->
+            <div id="documentUploadModal" class="portal-box" style="display:none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 600px; max-height: 85vh; overflow-y: auto; z-index: 9999;">
+                <div class="vault-header">
+                    <h2><i class="fas fa-upload"></i> Upload Document</h2>
+                    <button class="close-modal-btn" onclick="closeDocumentUploadModal()">&times;</button>
+                </div>
+                <form id="documentUploadForm">
+                    <input type="hidden" id="uploadKind">
+                    <div class="form-group">
+                        <label for="uploadDate & time">Date & Time *</label>
+                        <input type="datetime-local" id="uploadDate & time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="uploadVenue">Venue</label>
+                        <input type="text" id="uploadVenue">
+                    </div>
+                    <div class="form-group">
+                        <label for="uploadAttendees">Attendees</label>
+                        <textarea id="uploadAttendees" rows="3" style="box-sizing: border-box; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="uploadAgenda">Agenda</label>
+                        <textarea id="uploadAgenda" rows="4" style="box-sizing: border-box; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="uploadFile">File *</label>
+                        <input type="file" id="uploadFile" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="uploadName">Filled by</label>
+                        <input type="text" id="uploadName">
+                    </div>
+                    <div style="display:flex; gap:8px; justify-content:flex-end;">
+                        <button type="button" class="action-btn" onclick="closeDocumentUploadModal()">Cancel</button>
+                        <button type="submit" class="action-btn-purple">Upload Document</button>
+                    </div>
+                </form>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="portal-engine.js"></script>
+</body>
+</html>

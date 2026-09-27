@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Member Document Upload</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+</head>
+<body class="portal-body">
+    <div class="dashboard-container" style="min-height:auto; max-width: 1100px; margin: 0 auto; padding: 40px 20px; display: block;">
+        <div class="portal-box" style="margin-bottom: 24px; text-align: center;">
+            <img src="images/mrt-logo.jpg" alt="MRT logo" style="height: 90px; width: auto; margin-bottom: 16px;">
+            <h1 style="font-size: 32px; margin-bottom: 8px;">Member Document Submission</h1>
+            <p style="color: #444444; max-width: 780px; margin: 0 auto; font-size: 15px; line-height: 1.7;">
+                Welcome to the MRT member document upload portal. Please log in using your member credentials, then submit your ID card, CV, certificates, passport photo, and any additional formal documents. Once files are sent, they cannot be viewed through this page again.
+            </p>
+            <div style="margin-top:16px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px;">
+                <span style="padding:10px 14px; border-radius:12px; background:#eef0ff; color:#2b2d7a; font-size:13px;">Share this page with members: <strong>member-document-upload.html</strong></span>
+                <button type="button" class="action-btn-purple" onclick="copyMemberUploadLink()" style="padding:10px 14px; font-size:13px;">Copy Upload Link</button>
+            </div>
+        </div>
+
+        <div class="portal-box" style="padding: 30px;">
+            <form id="memberLoginForm">
+                <div class="form-group-portal">
+                    <label for="memberUsername">Member Name</label>
+                    <input type="text" id="memberUsername" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberPassword">Member Password</label>
+                    <input type="password" id="memberPassword" placeholder="Enter your upload password" required>
+                </div>
+                <button type="submit" class="action-btn-purple" style="width: 100%;">Log In to Upload Documents</button>
+            </form>
+
+            <div id="memberLoginMessage" style="margin-top: 16px; color: #d32f2f; font-weight: 600;"></div>
+        </div>
+
+        <div id="passwordSetupSection" class="portal-box" style="display:none; padding: 30px;">
+            <h2 style="margin-top: 0;">Set Your MRT Password</h2>
+            <p id="passwordSetupInstructions" style="color: #555; line-height: 1.7; margin-bottom: 18px;"></p>
+            <form id="passwordSetupForm">
+                <input type="hidden" id="passwordSetupToken">
+                <div class="form-group-portal">
+                    <label for="newMemberPassword">New Password</label>
+                    <input type="password" id="newMemberPassword" placeholder="Choose a new password" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="confirmNewMemberPassword">Confirm Password</label>
+                    <input type="password" id="confirmNewMemberPassword" placeholder="Confirm your password" required>
+                </div>
+                <button type="submit" class="action-btn-purple" style="width: 100%;">Save Password</button>
+            </form>
+            <div id="passwordSetupResult" style="margin-top: 16px; font-weight: 700;"></div>
+        </div>
+
+        <div id="documentUploadEmailModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+            <div style="background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); position: relative;">
+                <button type="button" onclick="closeUploadEmailModal()" style="position: absolute; top: 18px; right: 18px; background: none; border: none; font-size: 24px; color: #444; cursor: pointer;">&times;</button>
+                <h2 style="margin: 0 0 12px; font-size: 22px; color: #222;"><i class="fas fa-envelope"></i> Document Upload Invitation</h2>
+                <p style="margin: 0 0 18px; color: #555; line-height: 1.6;">A document upload invitation has been sent to the member. It includes a secure upload link so they can submit their files.</p>
+                <div style="background: #f8f8ff; border: 1px solid #e5e5f5; border-radius: 10px; padding: 18px; margin-bottom: 16px;">
+                    <p style="margin: 0 0 10px; font-size: 13px; color: #777;"><strong>To:</strong> <span id="uploadEmailRecipientText"></span></p>
+                    <p style="margin: 0 0 10px; font-size: 13px; color: #777;"><strong>Subject:</strong> Upload your MRT documents</p>
+                    <div style="background: #fff; border: 1px solid #dde2f9; border-radius: 8px; padding: 15px; color: #333; font-size: 14px; line-height: 1.7;">
+                        <p>Dear <span id="uploadEmailRecipientName"></span>,</p>
+                        <p>Your password has been set successfully. Please use the link below to upload your MRT registration documents.</p>
+                        <p style="margin: 10px 0;"><a id="uploadLink" href="#" style="display: inline-block; background: #1e88e5; color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none;">Upload Documents</a></p>
+                    </div>
+                </div>
+                <button type="button" onclick="copyUploadLink()" style="background: #5c2d91; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer;">Copy Upload Link</button>
+                <button type="button" onclick="sendUploadInvitationEmail()" style="margin-left: 10px; background: #1e88e5; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer;">Send Upload Email</button>
+                <span id="uploadLinkCopied" style="margin-left: 12px; color: #2e7d32; font-size: 13px; display: none;">Link copied!</span>
+            </div>
+        </div>
+
+        <div id="memberUploadSection" class="portal-box" style="display:none; padding: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Upload Member Documents</h2>
+                <button onclick="memberLogout()" class="logout-btn" style="padding: 8px 14px;">Logout</button>
+            </div>
+
+            <form id="memberUploadForm">
+                <input type="hidden" id="loggedMemberName">
+                <div class="form-group-portal">
+                    <label for="memberEmail">Member Email or ID</label>
+                    <input type="email" id="memberEmail" placeholder="Enter your email or member ID" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberIdCard">Upload ID Card</label>
+                    <input type="file" id="memberIdCard" accept="image/*,.pdf" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberCV">Upload CV</label>
+                    <input type="file" id="memberCV" accept="application/pdf,.doc,.docx" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberCertificates">Upload Certificates</label>
+                    <input type="file" id="memberCertificates" accept="application/pdf,image/*,.doc,.docx" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberPassportPhoto">Upload Passport Photo</label>
+                    <input type="file" id="memberPassportPhoto" accept="image/*" required>
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberOtherDocs">Upload Other Formal Documents</label>
+                    <input type="file" id="memberOtherDocs" accept="application/pdf,image/*,.doc,.docx">
+                </div>
+                <div class="form-group-portal">
+                    <label for="memberNotes">Optional Notes</label>
+                    <textarea id="memberNotes" rows="4" placeholder="Add any comments for the MRT team."></textarea>
+                </div>
+                <button type="submit" class="action-btn-purple" style="width: 100%;">Send Documents</button>
+            </form>
+
+            <div id="memberUploadMessage" style="margin-top: 18px; font-weight: 700;"></div>
+        </div>
+
+        <div class="portal-box" style="margin-top: 20px; padding: 24px; text-align: center; background: #f1f0ff; color: #2c2d7a;">
+            <p style="margin: 0; font-size: 13px; line-height: 1.6;">
+                Use this link to cancel or return: <a href="membership.html" style="color: #5c2d91; text-decoration: underline;">Back to membership</a>.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const MEMBER_UPLOAD_PASSWORD = 'MRTmember001';
+        let currentPasswordApplicant = null;
+        let currentLoggedMember = null;
+
+        const EMAILJS_SERVICE_ID = 'YOUR_EMAILJS_SERVICE_ID';
+        const EMAILJS_TEMPLATE_UPLOAD_INVITE = 'YOUR_EMAILJS_TEMPLATE_UPLOAD_INVITE';
+        const EMAILJS_TEMPLATE_CONGRATS = 'YOUR_EMAILJS_TEMPLATE_CONGRATS';
+        const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY';
+        const EMAILJS_FROM_EMAIL = 'miritiniresponset@gmail.com';
+
+        function initEmailJS() {
+            if (window.emailjs && !window.emailjs.__initialized) {
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+                window.emailjs.__initialized = true;
+            }
+        }
+
+        function emailJsConfigured() {
+            return EMAILJS_SERVICE_ID !== 'YOUR_EMAILJS_SERVICE_ID' &&
+                EMAILJS_TEMPLATE_UPLOAD_INVITE !== 'YOUR_EMAILJS_TEMPLATE_UPLOAD_INVITE' &&
+                EMAILJS_TEMPLATE_CONGRATS !== 'YOUR_EMAILJS_TEMPLATE_CONGRATS' &&
+                EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY';
+        }
+
+        function sendEmail(templateId, templateParams) {
+            if (!emailJsConfigured()) {
+                alert('EmailJS is not configured. Replace placeholder values in the script with your EmailJS service ID, template IDs, and public key.');
+                return Promise.reject(new Error('EmailJS configuration missing'));
+            }
+            initEmailJS();
+            if (!window.emailjs) {
+                alert('EmailJS is not loaded. Please ensure the EmailJS script is included.');
+                return Promise.reject(new Error('EmailJS not loaded'));
+            }
+            return emailjs.send(EMAILJS_SERVICE_ID, templateId, templateParams)
+                .then(response => {
+                    console.log('Email sent', response);
+                    return response;
+                })
+                .catch(error => {
+                    console.error('Email send failed', error);
+                    alert('Email send failed. Check the browser console for details.');
+                    throw error;
+                });
+        }
+
+        function getQueryStringParam(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+
+        function findApplicantByToken(token) {
+            const applicants = JSON.parse(localStorage.getItem('mrt_public_applications') || '[]');
+            return applicants.find(app => app.passwordSetupToken === token);
+        }
+
+        function findAccountForApplicant(applicant) {
+            const accounts = JSON.parse(localStorage.getItem('mrt_member_accounts') || '[]');
+            return accounts.find(acc => acc.email && applicant.email && acc.email.toLowerCase() === applicant.email.toLowerCase()) ||
+                accounts.find(acc => acc.membershipAccount === applicant.accountNumber) ||
+                accounts.find(acc => acc.name && acc.name.toLowerCase() === applicant.name.toLowerCase());
+        }
+
+        function showUploadSection(name, account) {
+            currentLoggedMember = account || null;
+            document.getElementById('memberLoginForm').style.display = 'none';
+            document.getElementById('passwordSetupSection').style.display = 'none';
+            document.getElementById('memberLoginMessage').innerText = '';
+            document.getElementById('memberUploadSection').style.display = 'block';
+            document.getElementById('loggedMemberName').value = name;
+        }
+
+        function memberLogout() {
+            document.getElementById('memberUploadSection').style.display = 'none';
+            document.getElementById('memberLoginForm').style.display = 'block';
+            document.getElementById('memberUploadForm').reset();
+            document.getElementById('memberLoginMessage').innerText = '';
+            document.getElementById('memberUploadMessage').innerText = '';
+        }
+
+        function readFileAsDataURL(input) {
+            return new Promise((resolve, reject) => {
+                const file = input.files[0];
+                if (!file) return resolve(null);
+                const reader = new FileReader();
+                reader.onload = () => resolve({ name: file.name, data: reader.result });
+                reader.onerror = () => reject(new Error('Unable to read file.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('memberLoginForm');
+            const passwordSetupForm = document.getElementById('passwordSetupForm');
+            const uploadForm = document.getElementById('memberUploadForm');
+
+            function copyMemberUploadLink() {
+                const shareUrl = window.location.origin + window.location.pathname.replace(/[^/]+$/, 'member-document-upload.html');
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert('Upload link copied: ' + shareUrl);
+                }).catch(() => {
+                    alert('Copy failed. Please share this URL instead: ' + shareUrl);
+                });
+            }
+            window.copyMemberUploadLink = copyMemberUploadLink;
+
+            const token = getQueryStringParam('token');
+            if (token) {
+                const applicant = findApplicantByToken(token);
+                document.getElementById('memberLoginForm').style.display = 'none';
+                if (applicant) {
+                    currentPasswordApplicant = applicant;
+                    document.getElementById('passwordSetupSection').style.display = 'block';
+                    document.getElementById('memberLoginMessage').innerText = '';
+                    document.getElementById('passwordSetupToken').value = token;
+                    document.getElementById('passwordSetupInstructions').innerText = `Hello ${applicant.name || applicant.email}, please create and confirm your new MRT password.`;
+                } else {
+                    document.getElementById('passwordSetupSection').style.display = 'block';
+                    document.getElementById('passwordSetupInstructions').innerText = 'This password setup link is invalid or expired. Please request a new password setup email from the MRT office.';
+                    document.getElementById('passwordSetupResult').style.color = '#d32f2f';
+                    document.getElementById('passwordSetupResult').innerText = 'Invalid password setup link.';
+                    document.getElementById('passwordSetupForm').style.display = 'none';
+                }
+            }
+
+            loginForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const username = document.getElementById('memberUsername').value.trim();
+                const password = document.getElementById('memberPassword').value;
+                const message = document.getElementById('memberLoginMessage');
+
+                if (!username || !password) {
+                    message.innerText = 'Please enter both name/email and password.';
+                    return;
+                }
+
+                const accounts = JSON.parse(localStorage.getItem('mrt_member_accounts') || '[]');
+                const foundAccount = accounts.find(acc => {
+                    const loginKey = username.toLowerCase();
+                    return (acc.name && acc.name.toLowerCase() === loginKey) ||
+                        (acc.email && acc.email.toLowerCase() === loginKey) ||
+                        (acc.username && acc.username.toLowerCase() === loginKey);
+                });
+
+                if (foundAccount) {
+                    if (foundAccount.password !== password) {
+                        message.innerText = 'Incorrect password for this member.';
+                        return;
+                    }
+                    showUploadSection(foundAccount.name || foundAccount.email || username, foundAccount);
+                    return;
+                }
+
+                if (password !== MEMBER_UPLOAD_PASSWORD) {
+                    message.innerText = 'Incorrect member password.';
+                    return;
+                }
+
+                showUploadSection(username);
+            });
+
+            passwordSetupForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const password = document.getElementById('newMemberPassword').value;
+                const confirmPassword = document.getElementById('confirmNewMemberPassword').value;
+                const feedback = document.getElementById('passwordSetupResult');
+
+                if (!currentPasswordApplicant) {
+                    feedback.style.color = '#d32f2f';
+                    feedback.innerText = 'Unable to find your password setup request.';
+                    return;
+                }
+                if (!password || !confirmPassword) {
+                    feedback.style.color = '#d32f2f';
+                    feedback.innerText = 'Please enter and confirm your new password.';
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    feedback.style.color = '#d32f2f';
+                    feedback.innerText = 'Passwords do not match.';
+                    return;
+                }
+
+                const accounts = JSON.parse(localStorage.getItem('mrt_member_accounts') || '[]');
+                let account = findAccountForApplicant(currentPasswordApplicant);
+                if (!account) {
+                    account = {
+                        id: Date.now(),
+                        email: currentPasswordApplicant.email,
+                        name: currentPasswordApplicant.name,
+                        phone: currentPasswordApplicant.phone,
+                        createdAt: new Date().toLocaleString(),
+                        membershipAccount: currentPasswordApplicant.accountNumber
+                    };
+                    accounts.unshift(account);
+                }
+                account.password = password;
+                account.passwordSetupCompleted = true;
+                const existingAccounts = accounts.filter(acc => !(acc.email && currentPasswordApplicant.email && acc.email.toLowerCase() === currentPasswordApplicant.email.toLowerCase()));
+                existingAccounts.unshift(account);
+                localStorage.setItem('mrt_member_accounts', JSON.stringify(existingAccounts));
+
+                const applicants = JSON.parse(localStorage.getItem('mrt_public_applications') || '[]');
+                const applicantIndex = applicants.findIndex(app => app.passwordSetupToken === document.getElementById('passwordSetupToken').value);
+                if (applicantIndex !== -1) {
+                    applicants[applicantIndex].status = 'Approved Active';
+                    applicants[applicantIndex].passwordSetupCompleted = true;
+                    localStorage.setItem('mrt_public_applications', JSON.stringify(applicants));
+                }
+
+                feedback.style.color = '#1e7e34';
+                feedback.innerText = 'Password saved successfully. An upload invitation email has been sent to the member.';
+                document.getElementById('passwordSetupForm').reset();
+                openUploadEmailModal(currentPasswordApplicant);
+                sendUploadInvitationEmail().catch(() => {
+                    console.warn('Upload invitation email failed to send.');
+                });
+                document.getElementById('memberLoginForm').style.display = 'block';
+                document.getElementById('passwordSetupSection').style.display = 'none';
+            });
+
+            uploadForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const memberName = document.getElementById('loggedMemberName').value.trim();
+                const memberEmail = document.getElementById('memberEmail').value.trim();
+                const notes = document.getElementById('memberNotes').value.trim();
+                const message = document.getElementById('memberUploadMessage');
+
+                const idCard = await readFileAsDataURL(document.getElementById('memberIdCard'));
+                const cv = await readFileAsDataURL(document.getElementById('memberCV'));
+                const certificates = await readFileAsDataURL(document.getElementById('memberCertificates'));
+                const passportPhoto = await readFileAsDataURL(document.getElementById('memberPassportPhoto'));
+                const otherDocs = await readFileAsDataURL(document.getElementById('memberOtherDocs'));
+
+                if (!memberName || !memberEmail || !idCard || !cv || !certificates || !passportPhoto) {
+                    message.style.color = '#d32f2f';
+                    message.innerText = 'Please provide your name, email, and all required files.';
+                    return;
+                }
+
+                const existing = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
+                existing.unshift({
+                    id: Date.now(),
+                    memberName,
+                    memberEmail,
+                    submittedAt: new Date().toLocaleString(),
+                    notes,
+                    files: {
+                        idCard,
+                        cv,
+                        certificates,
+                        passportPhoto,
+                        otherDocs
+                    }
+                });
+                localStorage.setItem('mrt_portal_member_documents', JSON.stringify(existing));
+
+                message.style.color = '#1e7e34';
+                message.innerText = 'Your documents have been sent successfully. A congratulation message has been prepared for the member via email and phone.';
+                uploadForm.reset();
+                sendCongratulationsMessages(memberName, memberEmail, currentLoggedMember ? currentLoggedMember.phone : '');
+                memberLogout();
+            });
+        });
+        function openUploadEmailModal(applicant) {
+            const uploadLink = window.location.origin + window.location.pathname.replace(/[^/]+$/, 'member-document-upload.html');
+            document.getElementById('uploadEmailRecipientText').innerText = applicant.email || applicant.name;
+            document.getElementById('uploadEmailRecipientName').innerText = applicant.name || applicant.email || 'Member';
+            const uploadLinkElement = document.getElementById('uploadLink');
+            uploadLinkElement.href = uploadLink;
+            uploadLinkElement.innerText = 'Upload Documents';
+            document.getElementById('uploadLinkCopied').style.display = 'none';
+            document.getElementById('documentUploadEmailModal').style.display = 'flex';
+        }
+
+        function closeUploadEmailModal() {
+            document.getElementById('documentUploadEmailModal').style.display = 'none';
+        }
+
+        function copyUploadLink() {
+            const uploadLink = document.getElementById('uploadLink').href;
+            navigator.clipboard.writeText(uploadLink).then(() => {
+                document.getElementById('uploadLinkCopied').style.display = 'inline';
+            });
+        }
+
+        function sendUploadInvitationEmail() {
+            const recipient = document.getElementById('uploadEmailRecipientText').innerText;
+            const recipientName = document.getElementById('uploadEmailRecipientName').innerText || 'Member';
+            const uploadLink = document.getElementById('uploadLink').href;
+            if (!recipient || recipient.indexOf('@') === -1) {
+                alert('A valid member email address is required to send the upload invitation.');
+                return;
+            }
+            return sendEmail(EMAILJS_TEMPLATE_UPLOAD_INVITE, {
+                from_email: EMAILJS_FROM_EMAIL,
+                to_email: recipient,
+                to_name: recipientName,
+                upload_link: uploadLink
+            }).then(() => {
+                alert('Upload invitation email sent successfully.');
+            });
+        }
+
+        function sendCongratulationsMessages(memberName, memberEmail, memberPhone) {
+            if (!memberEmail || memberEmail.indexOf('@') === -1) {
+                console.warn('No valid email available for congratulations message.');
+                return;
+            }
+            return sendEmail(EMAILJS_TEMPLATE_CONGRATS, {
+                from_email: EMAILJS_FROM_EMAIL,
+                to_email: memberEmail,
+                to_name: memberName
+            }).then(() => {
+                console.log('Congratulations email sent successfully.');
+            }).catch(() => {
+                console.warn('Congratulations email failed to send.');
+            });
+        }
+
+        function copyMemberUploadLink() {
+            const shareUrl = window.location.origin + window.location.pathname.replace(/[^/]+$/, 'member-document-upload.html');
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert('Upload link copied: ' + shareUrl);
+            }).catch(() => {
+                alert('Copy failed. Please share this URL instead: ' + shareUrl);
+            });
+        }
+    </script>
+</body>
+</html>

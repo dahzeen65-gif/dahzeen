@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Us - Miritini Response Team (MRT)</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        /* Dark Navigation Bar styling matching your website layout */
+        .public-navbar-dark {
+            background-color: #111116;
+            padding: 10px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            height: 60px;
+        }
+        
+        .public-navbar-dark .nav-logo-box {
+            background: #ffffff;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 45px;
+            width: 45px;
+            box-sizing: border-box;
+        }
+
+        .public-navbar-dark .nav-logo-box img {
+            max-height: 100%;
+            max-width: 100%;
+        }
+
+        .public-navbar-dark .nav-links {
+            display: flex;
+            gap: 25px;
+        }
+
+        .public-navbar-dark .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: opacity 0.2s ease;
+            opacity: 0.85;
+        }
+
+        .public-navbar-dark .nav-links a:hover, 
+        .public-navbar-dark .nav-links a.active {
+            opacity: 1;
+            text-decoration: underline;
+            text-underline-offset: 6px;
+            text-decoration-thickness: 2px;
+        }
+
+        .public-navbar-dark .nav-links a.admin-link {
+            text-transform: lowercase;
+            opacity: 0.75;
+        }
+
+        /* Page specific layouts */
+        .hero-banner {
+            background: linear-gradient(135deg, #5c2d91 0%, #3a1c60 100%);
+            color: #ffffff;
+            padding: 60px 10%;
+            text-align: center;
+        }
+        .hero-banner h1 { font-size: 2.5rem; margin-bottom: 15px; }
+        
+        .membership-container {
+            padding: 50px 10%;
+            background: #fcfaff;
+            display: flex;
+            gap: 40px;
+        }
+
+        .form-card {
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            flex: 2;
+        }
+
+        .info-sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .policy-box-container {
+            background: #fdfcff;
+            border: 1px solid #e1dbec;
+            border-radius: 4px;
+            padding: 15px;
+            height: 180px;
+            overflow-y: scroll;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: #5c2d91;
+            outline: none;
+        }
+
+        .submit-btn {
+            background-color: #5c2d91;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .submit-btn:hover {
+            background-color: #4a2375;
+        }
+
+        .success-msg {
+            display: none;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .footer-public {
+            background: #1e1e24;
+            color: #aaa;
+            padding: 40px 10%;
+            text-align: center;
+            font-size: 14px;
+            border-top: 4px solid #5c2d91;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PUBLIC NAVIGATION MENU -->
+    <nav class="public-navbar-dark">
+        <div class="nav-logo-box">
+            <img src="images/mrt-logo.jpg" alt="MRT Logo">
+        </div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="about.html">About</a>
+            <a href="programs.html">Programs</a>
+            <a href="gallery.html">Gallery</a>
+            <a href="membership.html" class="active">Membership</a>
+            <a href="contact.html">Contact</a>
+            <a href="portal-login.html" class="admin-link">admin</a>
+        </div>
+    </nav>
+
+    <!-- HERO HEADER -->
+    <header class="hero-banner">
+        <h1>Join the Miritini Response Team</h1>
+        <p>Become an active part of local disaster management, ecological conservation, and community first-aid response networks.</p>
+    </header>
+
+    <!-- REGISTRATION WORKSPACE -->
+    <main class="membership-container">
+        
+        <!-- LEFT SIDE: REGISTRATION FORM -->
+        <div class="form-card">
+            <div id="successNotification" class="success-msg">
+                <i class="fas fa-check-circle"></i> Application submitted successfully! Please proceed to complete your registration payment.
+            </div>
+
+            <h2 style="margin-bottom: 10px; color: #333;">Volunteer Registration Form</h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 30px;">Fill out your information below. Please ensure you review the statutory financial structures and policy guidelines before applying.</p>
+
+            <form id="membershipForm">
+                <div class="form-group">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName" required placeholder="e.g., Jane">
+                </div>
+
+                <div class="form-group">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName" required placeholder="e.g., Amina">
+                </div>
+
+                <div class="form-group">
+                    <label for="phoneNumber">Phone Number</label>
+                    <input type="tel" id="phoneNumber" required placeholder="e.g., 0712345678">
+                </div>
+
+                <div class="form-group">
+                    <label for="emailAddress">Email Address</label>
+                    <input type="email" id="emailAddress" required placeholder="you@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="primaryPillar">Primary Area of Interest</label>
+                    <select id="primaryPillar" required>
+                        <option value="" disabled selected>Select a department...</option>
+                        <option value="Emergency Response">Emergency Response (First Aid & Safety)</option>
+                        <option value="Environmental Action">Environmental Action (Sanitation & Ecology)</option>
+                        <option value="Disaster Preparedness">Disaster Preparedness (Community Drills)</option>
+                    </select>
+                </div>
+
+                <!-- TERMS AND POLICIES INTEGRATION SECTION -->
+                <div class="form-group">
+                    <label>MRT Terms, Conditions & Policy Registry</label>
+                    <div class="policy-box-container">
+                        <strong>1. Code of Civil Conduct</strong><br>
+                        All members of the Miritini Response Team (MRT) must uphold the highest standards of integrity, respect, and non-discrimination during public deployments, drills, and humanitarian emergency exercises.<br><br>
+                        
+                        <strong>2. Mobilization & Emergency Protocols</strong><br>
+                        Volunteer deployment during incidents (fires, sanitation drives, flood mitigation) is voluntary but must strictly follow the operational commands set by the Authorized Office Desk.<br><br>
+                        
+                        <strong>3. Local Data Privacy</strong><br>
+                        Personnel information collected on this registry is protected and used strictly for formal CBO communications, deployment tracking, and certification clearances.<br><br>
+                        
+                        <strong>4. Financial Contribution Responsibility</strong><br>
+                        By checking the agreement box below, you acknowledge your duty to remain a member in good standing by fulfilling the mandatory financial obligations outlined in the statutory schedule.
+                    </div>
+                    
+                    <label style="display: flex; align-items: flex-start; gap: 10px; font-weight: normal; cursor: pointer; font-size: 13px; color: #444;">
+                        <input type="checkbox" id="policyAgreement" required style="width: auto; margin-top: 3px;">
+                        I have read, understood, and solemnly agree to abide by the MRT Terms & Policies, including the financial commitment schedules.
+                    </label>
+                </div>
+
+                <button type="submit" class="submit-btn">Submit Application & Pay Registration Fee</button>
+            </form>
+        </div>
+
+        <!-- RIGHT SIDE: FINANCIAL AND CONTRIBUTION SUMMARY PANEL -->
+        <aside class="info-sidebar">
+            <div class="portal-box" style="background: #ffffff; padding: 25px; border-left: 4px solid #5c2d91;">
+                <h3 style="color: #333; margin-bottom: 15px; border-bottom: 2px solid #f4f0fa; padding-bottom: 10px;">
+                    <i class="fas fa-wallet" style="color:#5c2d91;"></i> Financial Schedule
+                </h3>
+                
+                <div style="margin-bottom: 20px;">
+                    <span style="font-size: 12px; text-transform: uppercase; color: #777; display: block; font-weight: 600;">One-Time Entry Fee</span>
+                    <strong style="font-size: 24px; color: #333;">KES 500</strong>
+                    <p style="font-size: 12px; color: #666; margin-top: 3px;">Due immediately upon application approval to cover onboarding costs and initial volunteer registration processes.</p>
+                </div>
+
+                <div>
+                    <span style="font-size: 12px; text-transform: uppercase; color: #777; display: block; font-weight: 600;">Monthly Contribution</span>
+                    <strong style="font-size: 24px; color: #5c2d91;">KES 200 <span style="font-size: 14px; font-weight: normal; color: #666;">/ month</span></strong>
+                    <p style="font-size: 12px; color: #666; margin-top: 3px;">Contributed by the 5th of every calendar month to directly fund community emergency first-aid supplies and sanitation tool maintenance kits.</p>
+                </div>
+            </div>
+
+            <div class="portal-box" style="background: #f4f0fa; padding: 20px; border: none; text-align: center;">
+                <i class="fas fa-shield-alt" style="font-size: 24px; color: #5c2d91; margin-bottom: 10px;"></i>
+                <h4 style="color: #333; margin-bottom: 5px;">Secure Verification</h4>
+                <p style="font-size: 12px; color: #666; line-height: 1.5;">All incoming contributions are completely handled and recorded under the supervision of the internal MRT Finance & Enterprise dashboard logs.</p>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer-public">
+        <p style="margin-bottom: 10px;">&copy; 2026 Miritini Response Team (MRT). All Rights Reserved.</p>
+        <p style="font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px;">Always Stay Aware and Prepared</p>
+    </footer>
+
+      <!-- ====== MPESA SECURE PAYMENT MODAL ====== -->
+    <div id="mpesaPaymentModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 35px; border-radius: 8px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative;">
+            
+            <!-- Safaricom M-Pesa Branding Header -->
+            <div style="background: #1baf49; color: white; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <strong style="font-size: 18px; letter-spacing: 0.5px;"><i class="fas fa-wallet"></i> M-PESA Paybill Checkout</strong>
+            </div>
+
+            <!-- Paybill Details Grid -->
+            <div style="background: #f4fdf6; border: 1px dashed #1baf49; padding: 15px; border-radius: 4px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; font-size: 14px;">
+                <div><span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Business No (Paybill)</span><strong style="color: #1baf49; font-size: 16px;">247247</strong></div>
+                <div><span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Amount</span><strong style="color: #333; font-size: 16px;">KES 500.00</strong></div>
+                <div style="grid-column: span 2; border-top: 1px solid #e2f5e7; padding-top: 8px;">
+                    <span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Account Number</span>
+                    <strong id="mpesaGeneratedAccountNo" style="color: #5c2d91; font-size: 15px; letter-spacing: 0.5px;">MRT-XXXXX</strong>
+                </div>
+            </div>
+
+            <p style="font-size: 13px; color: #555; margin-bottom: 15px;">
+                Confirm the phone number to receive the STK Push prompt mapped directly to this account allocation:
+            </p>
+
+            <div class="form-group" style="text-align: left;">
+                <label style="font-size: 12px; color: #666;">M-Pesa Phone Number</label>
+                <input type="text" id="mpesaPhoneNumberConfirm" style="font-weight: bold; font-size: 16px; text-align: center; letter-spacing: 1px; border: 2px solid #1baf49;">
+            </div>
+
+            <div id="paymentLoadingState" style="display: none; margin: 15px 0;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #1baf49;"></i>
+                <p style="font-size: 12px; color: #777; margin-top: 5px;">Processing transaction... Checking Paybill ledger hooks...</p>
+            </div>
+
+            <button type="button" onclick="triggerStkPushRequest()" class="submit-btn" style="background: #1baf49; margin-top: 10px;">Confirm & Pay KES 500</button>
+            <button type="button" onclick="closePaymentModal()" style="background: none; border: none; color: #888; font-size: 12px; margin-top: 15px; cursor: pointer; text-decoration: underline;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- PORTAL DATA STORAGE ENGINE ROUTER -->
+    <div id="verificationModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #fff; border-radius: 12px; max-width: 460px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.25); padding: 28px; position: relative;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <div>
+                    <h2 style="margin:0; font-size: 22px;">Verify Your Email</h2>
+                    <p style="margin: 8px 0 0; color:#555; font-size:14px;">Enter the code sent to your email and choose a secure password to access your member account.</p>
+                </div>
+                <button type="button" onclick="closeVerificationModal()" style="background:none; border:none; font-size:24px; line-height:1; color:#555; cursor:pointer;">&times;</button>
+            </div>
+            <form id="verificationForm">
+                <div style="display:grid; gap:14px;">
+                    <div class="form-group" style="margin-top:0;">
+                        <label for="verificationEmail">Email</label>
+                        <input type="email" id="verificationEmail" readonly style="width:100%; padding:10px; border:1px solid #d9d9e6; border-radius:8px; background:#f7f7fb;" />
+                    </div>
+                    <div class="form-group" style="margin-top:0;">
+                        <label for="verificationCode">Verification Code</label>
+                        <input type="text" id="verificationCode" required placeholder="Enter code" style="width:100%; padding:10px; border:1px solid #d9d9e6; border-radius:8px;" />
+                    </div>
+                    <div id="verificationCodeSentText" style="font-size:13px; color:#444; min-height:20px; margin-bottom:4px;"></div>
+                    <div class="form-group" style="margin-top:0;">
+                        <label for="verifyPassword">Create Password</label>
+                        <input type="password" id="verifyPassword" required placeholder="Choose a password" style="width:100%; padding:10px; border:1px solid #d9d9e6; border-radius:8px;" />
+                    </div>
+                    <div class="form-group" style="margin-top:0;">
+                        <label for="verifyPasswordConfirm">Confirm Password</label>
+                        <input type="password" id="verifyPasswordConfirm" required placeholder="Confirm password" style="width:100%; padding:10px; border:1px solid #d9d9e6; border-radius:8px;" />
+                    </div>
+                    <button type="submit" class="submit-btn" style="width:100%;">Verify & Finish Registration</button>
+                    <div id="verificationMessage" style="font-size:13px; color:#d32f2f; min-height:20px;"></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // Global holding object for current pending registration transaction
+    let currentActiveApplication = null;
+    let generatedVerificationCode = '';
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.getElementById('membershipForm');
+        const verificationForm = document.getElementById('verificationForm');
+        const successAlert = document.getElementById('successNotification');
+
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const policyCheckbox = document.getElementById('policyAgreement');
+                if (policyCheckbox && !policyCheckbox.checked) {
+                    alert("Please review and accept the MRT Terms & Policies to proceed.");
+                    return;
+                }
+
+                const firstName = document.getElementById('firstName').value.trim();
+                const lastName = document.getElementById('lastName').value.trim();
+                const phoneNumber = document.getElementById('phoneNumber').value.trim();
+                const emailAddress = document.getElementById('emailAddress').value.trim();
+                const pillar = document.getElementById('primaryPillar').value;
+
+                if (!firstName || !lastName || !phoneNumber || !emailAddress) {
+                    alert('Please fill out your first name, last name, phone number, and email address.');
+                    return;
+                }
+
+                const accountRef = 'MRT-' + Date.now().toString().slice(-6);
+                currentActiveApplication = {
+                    id: 'REG-' + Date.now(),
+                    firstName,
+                    lastName,
+                    name: `${firstName} ${lastName}`,
+                    phone: phoneNumber,
+                    email: emailAddress,
+                    pillar,
+                    accountNumber: accountRef,
+                    dateSubmitted: new Date().toLocaleDateString(),
+                    paymentStatus: 'Pending',
+                    status: 'Pending Review'
+                };
+
+                document.getElementById('mpesaGeneratedAccountNo').innerText = accountRef;
+                document.getElementById('mpesaPhoneNumberConfirm').value = phoneNumber;
+
+                const modal = document.getElementById('mpesaPaymentModal');
+                if (modal) {
+                    modal.style.setProperty('display', 'flex', 'important');
+                } else {
+                    console.error("Error: mpesaPaymentModal element not found in HTML structure.");
+                }
+            });
+        }
+
+        if (verificationForm) {
+            verificationForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const code = document.getElementById('verificationCode').value.trim();
+                const password = document.getElementById('verifyPassword').value;
+                const confirmPassword = document.getElementById('verifyPasswordConfirm').value;
+                const messageBox = document.getElementById('verificationMessage');
+
+                messageBox.style.color = '#d32f2f';
+                messageBox.innerText = '';
+
+                if (!code || !password || !confirmPassword) {
+                    messageBox.innerText = 'Please complete all verification fields.';
+                    return;
+                }
+                if (code !== generatedVerificationCode) {
+                    messageBox.innerText = 'Incorrect verification code. Please check the email message.';
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    messageBox.innerText = 'Passwords do not match.';
+                    return;
+                }
+
+                const accounts = JSON.parse(localStorage.getItem('mrt_member_accounts') || '[]');
+                if (accounts.some(acc => acc.email.toLowerCase() === currentActiveApplication.email.toLowerCase())) {
+                    messageBox.innerText = 'An account already exists for this email address.';
+                    return;
+                }
+
+                const newMemberAccount = {
+                    id: Date.now(),
+                    email: currentActiveApplication.email,
+                    password,
+                    name: currentActiveApplication.name,
+                    phone: currentActiveApplication.phone,
+                    createdAt: new Date().toLocaleString(),
+                    membershipAccount: currentActiveApplication.accountNumber
+                };
+                accounts.unshift(newMemberAccount);
+                localStorage.setItem('mrt_member_accounts', JSON.stringify(accounts));
+
+                const approvedMembers = JSON.parse(localStorage.getItem('mrt_public_applications') || '[]');
+                const memberIndex = approvedMembers.findIndex(app => app.accountNumber === currentActiveApplication.accountNumber);
+                if (memberIndex !== -1) {
+                    approvedMembers[memberIndex].createdAccount = true;
+                    approvedMembers[memberIndex].email = currentActiveApplication.email;
+                    localStorage.setItem('mrt_public_applications', JSON.stringify(approvedMembers));
+                }
+
+                messageBox.style.color = '#1e7e34';
+                messageBox.innerText = 'Email verified and account created successfully. You can now upload your documents.';
+
+                setTimeout(() => {
+                    closeVerificationModal();
+                    if (successAlert) successAlert.style.display = 'block';
+                    currentActiveApplication = null;
+                    generatedVerificationCode = '';
+                    window.location.href = 'member-document-upload.html';
+                }, 1200);
+            });
+        }
+    });
+
+    function closePaymentModal() {
+        document.getElementById('mpesaPaymentModal').style.display = 'none';
+    }
+
+    function triggerStkPushRequest() {
+        if (!currentActiveApplication) return;
+
+        document.getElementById('paymentLoadingState').style.display = 'block';
+
+        setTimeout(() => {
+            const randomReceipt = 'SGK' + Math.floor(100000 + Math.random() * 900000);
+            const paymentAmount = 500;
+
+            let currentBankBalance = parseFloat(localStorage.getItem('mrt_bank_vault_balance')) || 25400.00;
+            let newBankBalance = currentBankBalance + paymentAmount;
+            localStorage.setItem('mrt_bank_vault_balance', newBankBalance.toFixed(2));
+
+            const transactionLedger = JSON.parse(localStorage.getItem('mrt_general_ledger')) || [];
+            const newTransaction = {
+                receiptNumber: randomReceipt,
+                accountNo: currentActiveApplication.accountNumber,
+                depositor: currentActiveApplication.name,
+                phone: currentActiveApplication.phone,
+                type: 'Registration Fee',
+                amount: paymentAmount,
+                timestamp: new Date().toLocaleString()
+            };
+            transactionLedger.unshift(newTransaction);
+            localStorage.setItem('mrt_general_ledger', JSON.stringify(transactionLedger));
+
+            const approvedMembers = JSON.parse(localStorage.getItem('mrt_public_applications')) || [];
+            currentActiveApplication.paymentStatus = 'Paid';
+            currentActiveApplication.status = 'Awaiting Verification';
+            currentActiveApplication.mpesaRef = randomReceipt;
+            approvedMembers.push(currentActiveApplication);
+            localStorage.setItem('mrt_public_applications', JSON.stringify(approvedMembers));
+
+            document.getElementById('paymentLoadingState').style.display = 'none';
+            closePaymentModal();
+
+            if (successAlert) successAlert.style.display = 'block';
+            document.getElementById('membershipForm').reset();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            alert(`Payment Success! Receipt: ${randomReceipt}. KES 500 received for Account ${currentActiveApplication.accountNumber}.`);
+            openVerificationPopup();
+        }, 2500);
+    }
+
+    function openVerificationPopup() {
+        if (!currentActiveApplication) return;
+        generatedVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        document.getElementById('verificationEmail').value = currentActiveApplication.email || '';
+        document.getElementById('verificationCode').value = '';
+        document.getElementById('verifyPassword').value = '';
+        document.getElementById('verifyPasswordConfirm').value = '';
+        document.getElementById('verificationMessage').innerText = '';
+        document.getElementById('verificationCodeSentText').innerText = `A verification code was sent to ${currentActiveApplication.email}. Use code ${generatedVerificationCode} to complete registration.`;
+        document.getElementById('verificationModal').style.display = 'flex';
+    }
+
+    function closeVerificationModal() {
+        document.getElementById('verificationModal').style.display = 'none';
+        document.getElementById('verificationMessage').innerText = '';
+    }
+</script>
+
+</body>
+</html>
+

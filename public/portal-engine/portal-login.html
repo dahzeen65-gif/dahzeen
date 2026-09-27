@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Staff Portal Gateway</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="portal-body">
+
+    <div class="login-wrapper">
+        <!-- Logo Header -->
+        <div class="login-header">
+            <img src="images/mrt-logo.jpg" alt="MRT Logo" class="portal-logo" style="height: 60px; width: auto;">
+            <h2>MRT Portal Access</h2>
+            <p>Authorized Personnel Only</p>
+        </div>
+
+        <!-- Secure Login Form -->
+        <form class="login-form" action="login-form">
+            
+            <div class="input-group">
+                <label for="login-username">Username</label>
+                <div class="input-field">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="login-username" required placeholder="e.g. Mbaruk Mbaruk">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="login-password">Security Password</label>
+                <div class="input-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+            </div>
+
+            <button type="submit" class="login-btn">Verify Credentials</button>
+        </form>
+
+        <!-- Help Notice -->
+        <p id="loginMessage" class="login-message"></p>
+        <div class="login-footer">
+            <p><i class="fas fa-shield-alt"></i> Access strictly monitored. Forgotten credentials must be reset by the System Administrator.</p>
+        </div>
+    </div>
+
+    <script src="portal-engine.js"></script>
+</body>
+</html>

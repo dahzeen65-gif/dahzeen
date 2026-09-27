@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="security-gate.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRT Treasury & Enterprise Desk</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="dashboard-body">
+
+    <div class="dashboard-container">
+        
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <img src="images/mrt-logo.jpg" alt="MRT Logo" style="height: 40px; width: auto;">
+                <h3>MRT Office</h3>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li class="active"><a href="dashboard.html"><i class="fas fa-th-large"></i> Overview</a></li>
+                <li><a href="document.html"><i class="fas fa-folder-open"></i> Document Store</a></li>
+                <li><a href="member-document-review.html"><i class="fas fa-users"></i> Member Documents</a></li>
+                 <li><a href="applicants.html"><i class="fas fa-user-clock"></i> Applicant Log</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-line"></i> Program Reports</a></li>
+                <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+                <li><a href="finance.html"><i class="fas fa-wallet"></i> Finance and Enterprise</a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="user-info">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Staff Member</h4>
+                        <p>Authorized Officer</p>
+                    </div>
+                </div>
+                <a href="portal-login.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Exit Office</a>
+            </div>
+        </aside>
+
+         <main class="dashboard-main">
+            
+            <header class="main-header-portal">
+                <div class="header-title">
+                    <h1>Finance & Enterprise Portal</h1>
+                    <p>Official Treasury desk and business tracking system for MRT executives.</p>
+                </div>
+                <div class="system-status">
+                    <i class="fas fa-lock text-green"></i> Encrypted Vault Access
+                    <button class="vault-open-btn" onclick="openVaultModal()">Open Vault</button>
+                </div>
+            </header>
+
+            <section class="metrics-grid">
+                <div class="metric-card ledger-box" style="grid-column: 1 / -1;">
+                    <i class="fas fa-university" style="color: #34c759;"></i>
+                    <div>
+                        <p>Bank Account</p>
+                        <h3 id="bankAccountValue">KES 145,200.00</h3>
+                    </div>
+                </div>
+            </section>
+
+            <div class="portal-workspace-grid" style="margin-bottom: 30px;">
+                
+                <section class="portal-box">
+                    <h2><i class="fas fa-chart-bar"></i> Expenditure Analysis (By Program)</h2>
+                    <p class="box-desc">Visual distribution of financial resources across active community departments.</p>
+                    
+                    <div class="chart-container-financial">
+                        <div class="mock-chart-bars">
+                            <div class="bar-group"><div class="bar disaster" style="height: 75%;"><span>75%</span></div><label>Disaster</label></div>
+                            <div class="bar-group"><div class="bar environment" style="height: 55%;"><span>55%</span></div><label>Eco Action</label></div>
+                            <div class="bar-group"><div class="bar cleanup" style="height: 40%;"><span>40%</span></div><label>Clean-Up</label></div>
+                            <div class="bar-group"><div class="bar health" style="height: 30%;"><span>30%</span></div><label>Health</label></div>
+                        </div>
+                    </div>
+
+                    <div class="expenditure-legend">
+                        <span class="legend-item"><span class="dot disaster"></span> Disaster</span>
+                        <span class="legend-item"><span class="dot eco"></span> Eco Action</span>
+                        <span class="legend-item"><span class="dot clean"></span> Clean-Up</span>
+                        <span class="legend-item"><span class="dot health"></span> Health</span>
+                        <span class="legend-item"><span class="dot other"></span> Other</span>
+                    </div>
+                </section>
+
+                <section class="portal-box">
+                    <div class="vault-header">
+                        <h2><i class="fas fa-file-invoice-dollar"></i> Recent Expenditures</h2>
+                        <button class="upload-btn-portal" data-purpose="expense" onclick="openModal('expense')" style="font-size:11px;padding:6px 12px;"><i class="fas fa-plus"></i> Add Expenditure</button>
+                    </div>
+                    <p class="box-desc">Recent log of funds spent on programs and operations.</p>
+                    
+                    <table id="expensesTable" class="document-table font-compact">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                        </tbody>
+                    </table>
+                </section>
+
+            </div>
+
+            <div class="portal-workspace-grid">
+                
+                <section class="portal-box">
+                    <div class="vault-header">
+                        <h2><i class="fas fa-store"></i> Org Business Monitoring</h2>
+                        <button class="upload-btn-portal" data-purpose="sale" onclick="openModal('sale')" style="font-size: 11px; padding: 6px 12px;"><i class="fas fa-plus"></i> New Sale</button>
+                    </div>
+                    <p class="box-desc">Track sales from MRT income-generating initiatives.</p>
+                    
+                    <table id="salesTable" class="document-table font-compact">
+                        <thead>
+                            <tr>
+                                <th>Item/Service</th>
+                                <th>Qty</th>
+                                <th>Revenue</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="portal-box">
+                    <div class="vault-header">
+                        <h2><i class="fas fa-calendar-alt"></i> Operations & Events Calendar</h2>
+                        <span class="calendar-month-indicator">June 2026</span>
+                    </div>
+                    <p class="box-desc">Track upcoming community activations, deadlines, and staff events.</p>
+                    
+                    <div class="mrt-calendar">
+                        <div class="cal-days-header">
+                            <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+                        </div>
+                        <div class="cal-grid-days" id="calendarDays">
+                       
+                        </div>
+                    </div>
+                    
+                    <div class="calendar-legend">
+                        <span class="legend-item"><span class="dot disaster"></span> Disaster</span>
+                        <span class="legend-item"><span class="dot eco"></span> Eco Action</span>
+                        <span class="legend-item"><span class="dot clean"></span> Clean-up</span>
+                    </div>
+                </section>
+
+            </div>
+
+            <section id="vaultUnlockedSection" class="portal-box vault-unlocked-section" style="display:none; margin-top: 30px;">
+                <div class="vault-header">
+                    <h2><i class="fas fa-shield-alt"></i> Encrypted Vault Contents</h2>
+                </div>
+                <p class="box-desc">Access granted. This section is visible only after successful PIN authentication.</p>
+                <div class="vault-secret-cards">
+                    <div class="secret-card">
+                        <h3>Confidential Ledger</h3>
+                        <p>Secure finance notes and internal audit references.</p>
+                    </div>
+                    <div class="secret-card">
+                        <h3>Executive Access Report</h3>
+                        <p>Time-sensitive documents for senior management only.</p>
+                    </div>
+                    <div class="secret-card">
+                        <h3>Vault Action Center</h3>
+                        <p>Use the portal's secure interface to manage restricted access entries.</p>
+                    </div>
+                </div>
+                <div class="vault-account-controls">
+                    <h3>Vault Account Balances</h3>
+                    <div class="vault-account-grid">
+                        <div class="account-card" style="grid-column: 1 / -1;">
+                            <h4>Bank Account</h4>
+                            <p class="account-value" id="bankValue">KES 0</p>
+                            <div class="form-group-portal">
+                                <label for="bankInput">Update Bank Balance</label>
+                                <input id="bankInput" type="text" placeholder="e.g. 145200">
+                            </div>
+                            <button class="action-btn-purple" onclick="saveVaultAccount('bank')">Save Bank</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="vault-account-controls" style="margin-top: 20px;">
+                    <h3>Authorized Login Users</h3>
+                    <div class="vault-account-grid">
+                        <div class="account-card" style="grid-column: 1 / -1;">
+                            <p>Only listed usernames can login with the shared password.</p>
+                            <div id="vaultUserList" class="vault-user-list"></div>
+                            <div class="form-group-portal">
+                                <label for="vaultUserInput">Add Username</label>
+                                <input id="vaultUserInput" type="text" placeholder="e.g. Hellen Kariuki">
+                            </div>
+                            <button class="action-btn-purple" onclick="addVaultUser()">Add Authorized User</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+<div id="entryModal" class="modal-overlay-portal">
+        <div class="modal-box-portal">
+            <div class="modal-header-portal">
+                <h2 id="modalTitle">Add Financial Entry</h2>
+                <button class="close-modal-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="portalEntryForm">
+                <input type="hidden" id="entryType">
+                
+                <div class="form-group-portal">
+                    <label id="labelField1">Description / Item Name</label>
+                    <input type="text" id="field1" required placeholder="e.g. Branded Hoodies">
+                </div>
+                
+                <div class="form-group-portal" id="qtyGroup">
+                    <label>Quantity / Category</label>
+                    <input type="text" id="field2" placeholder="e.g. 10 or Environment">
+                </div>
+                
+                <div class="form-group-portal">
+                    <label id="labelField3">Amount (KES) / Date</label>
+                    <input type="text" id="field3" required placeholder="e.g. 15000 or 2026-06-25">
+                </div>
+
+                <button type="submit" class="action-btn-purple">Save & Update Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="vaultPinModal" class="modal-overlay-portal">
+        <div class="modal-box-portal">
+            <div class="modal-header-portal">
+                <h2>Vault PIN Access</h2>
+                <button class="close-modal-btn" onclick="closeVaultModal()">&times;</button>
+            </div>
+            <div class="vault-pin-content">
+                <p>Enter your secure PIN to unlock the encrypted vault.</p>
+                <div class="form-group-portal">
+                    <label for="vaultPin">PIN Code</label>
+                    <input id="vaultPin" type="password" maxlength="6" placeholder="••••••">
+                </div>
+                <button class="action-btn-purple" onclick="submitVaultPin()">Unlock Vault</button>
+                <p id="vaultPinMessage" class="vault-pin-message"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="portal-engine.js"></script>
+
+    </div>
+
+</body>
+</html>

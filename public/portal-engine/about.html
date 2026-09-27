@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - Miritini Response Team (MRT)</title>
+    <!-- Links to your main style definitions -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        /* Dark Navigation Bar styling matching image 1f6a0245-2617-45bf-bba1-dcf1853d96f3 */
+        .public-navbar-dark {
+            background-color: #111116; /* Deep dark background */
+            padding: 20px 5%;
+            display: flex;
+            justify-content: flex-start; /* Left-aligned menu links */
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .public-navbar-dark .nav-links {
+            display: flex;
+            gap: 25px; /* Spacing exactly as displayed in the layout */
+        }
+
+        .public-navbar-dark .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: opacity 0.2s ease;
+            opacity: 0.85;
+        }
+
+        /* Active highlight and hover state */
+        .public-navbar-dark .nav-links a:hover, 
+        .public-navbar-dark .nav-links a.active {
+            opacity: 1;
+            text-decoration: underline;
+            text-underline-offset: 5px;
+        }
+
+        /* Admin link styling to blend subtly at the end */
+        .public-navbar-dark .nav-links a.admin-link {
+            text-transform: lowercase; /* Matches 'admin' styling exactly */
+            opacity: 0.75;
+        }
+
+        /* Content spacing tweaks */
+        .hero-banner {
+            background: linear-gradient(135deg, #5c2d91 0%, #3a1c60 100%);
+            color: #ffffff;
+            padding: 80px 10%;
+            text-align: center;
+        }
+        .hero-banner h1 { font-size: 2.8rem; margin-bottom: 15px; }
+        .hero-banner p { font-size: 1.2rem; opacity: 0.9; max-width: 700px; margin: 0 auto; }
+        .about-content-section { padding: 60px 10%; background: #fcfaff; }
+        .vision-mission-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; }
+        .pillar-card { background: #ffffff; border-left: 4px solid #5c2d91; padding: 25px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .footer-public { background: #1e1e24; color: #aaa; padding: 40px 10%; text-align: center; font-size: 14px; border-top: 4px solid #5c2d91; }
+    </style>
+</head>
+<body>
+
+    <!-- PUBLIC NAVIGATION MENU (MATCHED TO DESIGN BAR IMAGE) -->
+    <nav class="public-navbar-dark">
+
+        <div class="logo-container">
+
+<a href="index.html">
+
+<img src="./images/mrt.jpg" class="logo-img">
+
+</a>
+
+</div>
+    <!-- Menu links pushed to the right -->
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="about.html" class="active">About</a>
+            <a href="programs.html">Programs</a>
+            <a href="gallery.html">Gallery</a>
+            <a href="membership.html">Membership</a>
+            <a href="contact.html">Contact</a>
+            <a href="portal-login.html" class="admin-link">admin</a>
+        </div>
+    </nav>
+
+    <!-- MAIN HERO SECTION -->
+    <header class="hero-banner">
+        <h1>Building Resilient Communities</h1>
+        <p>MRT is a Community-Based Organization (CBO) serving Miritini and the wider Coast Region, dedicated to swift emergency response, localized environmental action, and comprehensive public disaster preparedness.</p>
+    </header>
+
+    <!-- MAIN CONTENT BODY -->
+    <main class="about-content-section">
+        <div class="portal-workspace-grid" style="grid-template-columns: 2fr 1fr; gap: 40px;">
+            
+            <article>
+                <h2 style="color: #333; margin-bottom: 20px; font-size: 24px;">Our Core Philosophy</h2>
+                <p style="color: #555; line-height: 1.7; margin-bottom: 15px;">
+                    Founded on the ground values of grassroots mutual aid, the Miritini Response Team (MRT) functions as an operational frontline support network. We bridge the gap between community vulnerabilities and critical emergency intervention systems. By empowering local youth, implementing structured public training parameters, and mapping local flood, environmental, or medical hazards before they expand, MRT proactively works to preserve livelihoods and ecosystem integrity.
+                </p>
+                <p style="color: #555; line-height: 1.7;">
+                    Whether marshaling local rapid response deployments during immediate municipal incidents or coordinating massive preventative public asset activations, MRT’s core values stand uniform: rapid organization, transparency, and unyielding readiness.
+                </p>
+
+                <!-- VISION & MISSION -->
+                <div class="vision-mission-grid">
+                    <div class="pillar-card">
+                        <h3 style="color: #5c2d91; margin-bottom: 10px;"><i class="fas fa-eye"></i> Our Vision</h3>
+                        <p style="color: #666; font-size: 14px; line-height: 1.6;">A deeply unified, resilient community where citizens across the Coast Region possess the skills, structural preparation, and active networks necessary to successfully mitigate environmental hazards and manage safety emergencies effectively.</p>
+                    </div>
+                    <div class="pillar-card" style="border-left-color: #ff9500;">
+                        <h3 style="color: #ff9500; margin-bottom: 10px;"><i class="fas fa-bullseye"></i> Our Mission</h3>
+                        <p style="color: #666; font-size: 14px; line-height: 1.6;">To actively reduce public vulnerability indices through structured, youth-driven emergency drills, sustainable environmental cleaning frameworks, direct disaster impact interventions, and rapid local medical first-aid support systems.</p>
+                    </div>
+                </div>
+            </article>
+
+            <!-- QUICK LOOK -->
+            <aside class="portal-box" style="background: #ffffff; padding: 25px; height: fit-content;">
+                <h3 style="color: #333; margin-bottom: 15px; border-bottom: 2px solid #f4f0fa; padding-bottom: 10px;"><i class="fas fa-info-circle" style="color:#5c2d91;"></i> Quick Profile</h3>
+                <ul style="list-style: none; padding: 0; line-height: 2;">
+                    <li style="border-bottom: 1px solid #f9f9f9; padding: 5px 0;"><strong style="color:#444;">Entity Type:</strong> Community-Based Org (CBO)</li>
+                    <li style="border-bottom: 1px solid #f9f9f9; padding: 5px 0;"><strong style="color:#444;">Operational Zone:</strong> Miritini, Mombasa, Kenya</li>
+                    <li style="border-bottom: 1px solid #f9f9f9; padding: 5px 0;"><strong style="color:#444;">Focus Segments:</strong> Disaster Mgt, Eco-Action</li>
+                    <li style="border-bottom: 1px solid #f9f9f9; padding: 5px 0;"><strong style="color:#444;">Volunteers Enlisted:</strong> 35+ Active Responders</li>
+                </ul>
+            </aside>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer-public">
+        <p style="margin-bottom: 10px;">&copy; 2026 Miritini Response Team (MRT). All Rights Reserved.</p>
+        <p style="font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px;">Always Stay Aware and Prepared</p>
+    </footer>
+
+</body>
+</html>
+

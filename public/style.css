@@ -1928,7 +1928,9 @@ border-radius:20px;
     .main-header-portal {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         flex-direction: row;
+        flex-wrap: wrap;
         gap: 12px;
         padding-right: 72px;
     }
@@ -1938,6 +1940,10 @@ border-radius:20px;
         height: 52px;
         top: 4px;
         right: 8px;
+    }
+
+    .header-title {
+        flex: 1 1 180px;
     }
 
     .dashboard-main::before {
@@ -1952,8 +1958,9 @@ border-radius:20px;
     }
 
     .system-status {
-        width: 100%;
+        width: auto;
         justify-content: center;
+        margin-left: auto;
     }
 
     .metrics-grid {
@@ -1965,7 +1972,7 @@ border-radius:20px;
     }
 
     .portal-workspace-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px;
     }
 
@@ -2123,6 +2130,16 @@ border-radius:20px;
 
 @media (max-width: 992px) {
     .portal-workspace-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .portal-workspace-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metrics-grid {
         grid-template-columns: 1fr;
     }
 }

@@ -1831,6 +1831,128 @@ border-radius:20px;
     }
 }
 
+@media (max-width: 768px) {
+    .dashboard-body {
+        overflow-x: hidden;
+    }
+
+    .dashboard-container {
+        display: block;
+    }
+
+    .dashboard-sidebar {
+        width: 82px;
+        min-width: 82px;
+        padding: 18px 10px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+    }
+
+    .sidebar-brand {
+        justify-content: center;
+        padding-bottom: 18px;
+    }
+
+    .sidebar-brand h3 {
+        display: none;
+    }
+
+    .sidebar-brand img {
+        height: 28px;
+    }
+
+    .sidebar-menu {
+        margin-top: 18px;
+    }
+
+    .sidebar-menu li a {
+        justify-content: center;
+        gap: 0;
+        padding: 12px 8px;
+        font-size: 0;
+        white-space: nowrap;
+    }
+
+    .sidebar-menu li a i {
+        font-size: 18px;
+        margin: 0;
+    }
+
+    .user-info {
+        justify-content: center;
+    }
+
+    .user-info > div,
+    .user-info p,
+    .logout-btn {
+        display: none;
+    }
+
+    .logout-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 8px;
+        font-size: 0;
+    }
+
+    .logout-btn i {
+        font-size: 18px;
+    }
+
+    .dashboard-main {
+        padding: 22px 16px 30px;
+    }
+
+    .main-header-portal {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding-right: 72px;
+    }
+
+    .main-header-portal::after {
+        width: 52px;
+        height: 52px;
+        top: 4px;
+        right: 8px;
+    }
+
+    .dashboard-main::before {
+        width: 220px;
+        height: 220px;
+        left: 50%;
+        opacity: 0.02;
+    }
+
+    .header-title h1 {
+        font-size: 22px;
+    }
+
+    .system-status {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .metrics-grid {
+        gap: 18px;
+    }
+
+    .metric-card {
+        padding: 18px 16px;
+    }
+
+    .portal-workspace-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .portal-box {
+        padding: 20px 16px;
+    }
+}
+
 /* WORKSPACE GRID */
 .portal-workspace-grid {
     display: grid;

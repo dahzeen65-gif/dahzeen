@@ -65,6 +65,56 @@ const defaultTemplates = [];
 const defaultMemberDocuments = [];
 
 const LOGIN_PASSWORD = "MrTEam001";
+const COOKIE_CONSENT_KEY = 'mrt_cookie_consent';
+
+function showCookieConsentBanner() {
+    if (typeof window === 'undefined') return;
+    if (localStorage.getItem(COOKIE_CONSENT_KEY)) return;
+    if (document.getElementById('mrt-cookie-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'mrt-cookie-banner';
+    banner.style.position = 'fixed';
+    banner.style.left = '0';
+    banner.style.right = '0';
+    banner.style.bottom = '0';
+    banner.style.zIndex = '9999';
+    banner.style.background = '#0f172a';
+    banner.style.color = '#f8fafc';
+    banner.style.boxShadow = '0 -10px 30px rgba(15, 23, 42, 0.25)';
+    banner.style.padding = '16px 20px';
+    banner.style.borderTop = '1px solid rgba(255,255,255,0.08)';
+
+    banner.innerHTML = `
+        <div style="max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:260px;">
+                <strong style="display:block; font-size:15px; margin-bottom:4px;">Cookie preferences</strong>
+                <span style="font-size:13px; color:#cbd5e1; line-height:1.5;">
+                    This site uses essential cookies to keep your admin session secure. You can accept or decline non-essential cookies.
+                </span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <button id="mrt-cookie-accept" style="background:#22c55e; color:white; border:none; border-radius:8px; padding:10px 16px; font-weight:600; cursor:pointer;">Accept</button>
+                <button id="mrt-cookie-decline" style="background:transparent; color:#e2e8f0; border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:10px 16px; font-weight:600; cursor:pointer;">Decline</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(banner);
+
+    const acceptBtn = document.getElementById('mrt-cookie-accept');
+    const declineBtn = document.getElementById('mrt-cookie-decline');
+
+    acceptBtn.addEventListener('click', function() {
+        localStorage.setItem(COOKIE_CONSENT_KEY, 'accepted');
+        banner.remove();
+    });
+
+    declineBtn.addEventListener('click', function() {
+        localStorage.setItem(COOKIE_CONSENT_KEY, 'declined');
+        banner.remove();
+    });
+}
 
 // ====== LOAD DATA ENGINE ======
 function getPortalData(key, defaultData) {
@@ -181,6 +231,8 @@ function generateLiveCalendar() {
 
 // ====== DATA RETRIEVAL AND INSERTION ENGINE ======
 document.addEventListener("DOMContentLoaded", function() {
+    showCookieConsentBanner();
+
     // 1. Bind form submissions safely
     const form = document.getElementById("portalEntryForm");
     if (form) {
@@ -259,30 +311,39 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const loginForm = document.querySelector(".login-form");
     if (loginForm) {
-        loginForm.addEventListener("submit", function(event) {
+        loginForm.addEventListener("submit", async function(event) {
             event.preventDefault();
             const username = document.getElementById("login-username").value.trim();
             const password = document.getElementById("login-password").value;
             const message = document.getElementById("loginMessage");
-            const allowedUsers = getPortalData(STORAGE_KEYS.allowedUsers, defaultAllowedUsers);
 
             if (!username || !password) {
                 if (message) message.innerText = "Please enter both username and password.";
                 return;
             }
 
-            if (password !== LOGIN_PASSWORD) {
-                if (message) message.innerText = "Incorrect password.";
-                return;
-            }
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
 
-            const usernameMatch = allowedUsers.some(user => user.toLowerCase() === username.toLowerCase());
-            if (!usernameMatch) {
-                if (message) message.innerText = "This username is not authorized. Add it through the vault.";
-                return;
-            }
+                const data = await response.json();
 
-            window.location.href = "dashboard.html";
+                if (!response.ok || !data.success) {
+                    if (message) message.innerText = data.message || 'Invalid credentials or unauthorized user account.';
+                    return;
+                }
+
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error('Authentication Error:', error);
+                if (message) message.innerText = 'Cannot establish secure link to backend authentication server.';
+            }
         });
     }
 
@@ -1688,41 +1749,6 @@ function triggerStkPushRequest() {
     });
 }
 
-// REPLACEMENT FOR LOGIN FORM SUBMISSION IN PORTAL-ENGINE.JS
-const loginForm = document.querySelector(".login-form");
-if (loginForm) {
-    loginForm.addEventListener("submit", function(event) {
-        event.preventDefault();
-        const username = document.getElementById("login-username").value.trim();
-        const password = document.getElementById("login-password").value;
-        const message = document.getElementById("loginMessage");
-
-        if (!username || !password) {
-            if (message) message.innerText = "Please enter both username and password.";
-            return;
-        }
-
-        // Post credentials securely to the server
-        fetch('/api/auth/login', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = "dashboard.html";
-            } else {
-                if (message) message.innerText = data.message;
-            }
-        })
-        .catch(error => {
-            console.error("Authentication Error:", error);
-            if (message) message.innerText = "Cannot establish secure link to backend authentication server.";
-        });
-    });
-}
 
 // ====== SECURE MINUTES DELETE WITH PIN CHALLENGE ======
 function deleteMinutesEntry(id) {

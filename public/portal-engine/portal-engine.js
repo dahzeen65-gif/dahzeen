@@ -1688,41 +1688,6 @@ function triggerStkPushRequest() {
     });
 }
 
-// REPLACEMENT FOR LOGIN FORM SUBMISSION IN PORTAL-ENGINE.JS
-const loginForm = document.querySelector(".login-form");
-if (loginForm) {
-    loginForm.addEventListener("submit", function(event) {
-        event.preventDefault();
-        const username = document.getElementById("login-username").value.trim();
-        const password = document.getElementById("login-password").value;
-        const message = document.getElementById("loginMessage");
-
-        if (!username || !password) {
-            if (message) message.innerText = "Please enter both username and password.";
-            return;
-        }
-
-        // Post credentials securely to the server
-        fetch('http://localhost:3000/api/auth/login', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = "dashboard.html";
-            } else {
-                if (message) message.innerText = data.message;
-            }
-        })
-        .catch(error => {
-            console.error("Authentication Error:", error);
-            if (message) message.innerText = "Cannot establish secure link to backend authentication server.";
-        });
-    });
-}
 
 // Free self-hosted auth keeps the session in secure cookies rather than browser storage.
 if (data && data.success) {

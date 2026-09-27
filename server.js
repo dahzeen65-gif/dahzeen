@@ -113,7 +113,18 @@ async function initializeDefaultAdmin() {
         console.log('[Security Engine] Default administrator "Mbaruk Mbaruk" initialized securely.');
     }
 }
-initializeDefaultAdmin();
+
+async function startServer() {
+    await initializeDefaultAdmin();
+    app.listen(PORT, () => {
+        console.log(`========================================================`);
+        console.log(`MRT Backend Server running locally on http://localhost:${PORT}`);
+        console.log(`Status: Active Workspace Mode (Sandbox Integration Ready)`);
+        console.log(`========================================================`);
+    });
+}
+
+startServer();
 
 // ==========================================================================
 // 2. PUBLIC PAGE ROUTERS
@@ -232,14 +243,6 @@ app.post('/api/auth/logout', (req, res) => {
 // ==========================================================================
 app.get('/api/admin/applicants', requireAuth, (req, res) => {
     res.json(DB_APPLICANTS);
-});
-
-// START THE SERVER
-app.listen(PORT, () => {
-    console.log(`========================================================`);
-    console.log(`MRT Backend Server running locally on http://localhost:${PORT}`);
-    console.log(`Status: Active Workspace Mode (Sandbox Integration Ready)`);
-    console.log(`========================================================`);
 });
 
 app.delete('/api/documents/minutes/:id', requireAuth, (req, res) => {

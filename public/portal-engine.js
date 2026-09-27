@@ -1703,7 +1703,7 @@ if (loginForm) {
         }
 
         // Post credentials securely to the server
-        fetch('http://localhost:3000/api/auth/login', {
+        fetch('/api/auth/login', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -2242,6 +2242,7 @@ if (portallogin) {
             // Because of our folder structure, we can call the endpoint directly
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },

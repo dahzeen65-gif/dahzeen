@@ -17,9 +17,9 @@ content: "";
 position: fixed;
 inset: 0;
 background: url("images/mrt-logo.jpg") center/contain no-repeat;
-opacity: 0.12;
-filter: blur(18px) brightness(1.2) saturate(0.8);
-transform: scale(1.2);
+opacity: 0.55;
+filter: blur(16px) brightness(1.05) saturate(0.8);
+transform: scale(1.18);
 pointer-events: none;
 z-index: -1;
 }
@@ -75,8 +75,12 @@ font-weight:600;
 cursor:pointer;
 }
 
-.nav-menu {
-position:relative;
+.nav-menu.active {
+    right: 0;
+}
+
+.nav-links a:hover{
+color:#dfe6ff;
 }
 
 @media (max-width: 768px){
@@ -85,42 +89,58 @@ position:relative;
         z-index: 1102;
     }
 
-    .nav-links{
+    .nav-menu {
         position:fixed;
-        top:0;
-        left:-100%;
-        bottom:0;
-        width:min(82vw, 260px);
+        top:74px;
+        right:0;
+        width:260px;
+        height:calc(100vh - 74px);
+        background:#0d1b3d;
+        box-shadow:-4px 0 15px rgba(0,0,0,0.5);
+        transform: translateX(105%);
+        transition: transform 0.3s ease-in-out;
+        z-index:1101;
+        border-radius:0;
+        padding:0;
+        overflow-y:auto;
+    }
+
+    .nav-menu.active {
+        transform: translateX(0);
+    }
+
+    .nav-links{
+        position:static;
         display:flex;
         flex-direction:column;
         align-items:flex-start;
         gap:14px;
-        background:rgba(17,17,17,0.98);
-        padding:80px 20px 24px;
-        border-radius:0 16px 16px 0;
-        box-shadow:12px 0 30px rgba(0,0,0,0.28);
-        transition:left 0.28s ease, opacity 0.28s ease;
-        opacity:0;
-        visibility:hidden;
-        pointer-events:none;
-        z-index:1101;
-        overflow-y:auto;
-    }
-
-    .nav-links.open{
-        left:0;
+        width:100%;
+        background:transparent;
+        color:#f4f6fb;
+        padding:24px 20px;
+        border-radius:0;
+        box-shadow:none;
         opacity:1;
         visibility:visible;
         pointer-events:auto;
     }
 
+    .nav-links a{
+        color:#f4f6fb;
+        font-size:1.05rem;
+        display:block;
+        width:100%;
+        padding:8px 0;
+    }
+
+    .nav-links.open{
+        display:flex;
+    }
+
     body.nav-open {
         overflow:hidden;
     }
-}
-
-.nav-links a:hover{
-color:#120150;
 }
 
 .hero-buttons a,
@@ -2867,42 +2887,6 @@ main,
   justify-content: center;
 }
 
-/* --- MOBILE DRAWER FIXES --- */
-@media (max-width: 768px) {
-  .menu-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #2a1b4e;
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-
-  .nav-menu {
-    position: fixed;
-    top: 74px;
-    right: -100%;
-    width: 260px;
-    height: calc(100vh - 74px);
-    background-color: #120b22;
-    transition: right 0.3s ease-in-out;
-    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.5);
-    z-index: 999;
-  }
-
-  .nav-menu.active {
-    right: 0;
-  }
-
-  .nav-links {
-    flex-direction: column;
-    padding: 30px 20px;
-    gap: 18px;
-  }
-}
 /* =========================================================
    1. GLOBAL RESETS (PREVENTS SIDE-SCROLLING & GIANT IMAGES)
    ========================================================= */
@@ -2982,43 +2966,4 @@ img {
   color: #e0e0e0;
   font-size: 0.95rem;
   margin-bottom: 20px;
-}
-
-/* =========================================================
-   3. MOBILE DRAWER FIX (PREVENTS PAGE STRETCHING)
-   ========================================================= */
-.nav-menu {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 280px;
-  height: 100vh;
-  background-color: #120b22;
-  z-index: 9999;
-  /* Use transform instead of right: -300px to prevent horizontal page expansion */
-  transform: translateX(100%);
-  transition: transform 0.3s ease-in-out;
-  padding: 80px 20px 30px;
-}
-
-.nav-menu.active {
-  transform: translateX(0);
-}
-
-/* =========================================================
-   4. FOOTER & LINK CONTRAST FIXES
-   ========================================================= */
-footer, .footer {
-  background-color: #0d0718;
-  color: #ffffff;
-  padding: 40px 20px;
-}
-
-footer a, .footer a {
-  color: #a8b2d1; /* High contrast readable light grey-blue */
-  text-decoration: none;
-}
-
-footer a:hover {
-  color: #ffffff;
 }

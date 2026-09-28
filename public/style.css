@@ -7,8 +7,21 @@ scroll-behavior:smooth;
 }
 
 body{
+position: relative;
 background:url("images/mrt.jpg") center/cover fixed no-repeat;
 color:#0b2b70;
+}
+
+body::before {
+content: "";
+position: fixed;
+inset: 0;
+background: url("images/mrt-logo.jpg") center/contain no-repeat;
+opacity: 0.12;
+filter: blur(18px) brightness(1.2) saturate(0.8);
+transform: scale(1.2);
+pointer-events: none;
+z-index: -1;
 }
 
 /* NAVBAR */
@@ -134,6 +147,7 @@ display:flex;
 justify-content:center;
 align-items:center;
 text-align:center;
+overflow:hidden;
 }
 
 .hero-logo {
@@ -418,16 +432,26 @@ opacity:.2;
 
     .overlay{
         padding:24px 18px;
+        background: rgba(11, 29, 61, 0.9);
+        border-radius: 18px;
+        width: calc(100% - 24px);
+        left: 12px;
+        right: 12px;
+        height: auto;
+        min-height: 220px;
+        box-shadow: 0 18px 40px rgba(11, 29, 61, 0.25);
     }
 
     .overlay h1{
         font-size:clamp(2.2rem, 9vw, 3.8rem);
         line-height:1.1;
+        color: #f5f7fb;
     }
 
     .overlay p{
         width:100%;
         font-size:1rem;
+        color: #f5f7fb;
     }
 
     .hero-buttons{

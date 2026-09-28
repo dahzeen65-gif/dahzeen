@@ -2737,3 +2737,112 @@ main,
   background: rgba(40, 20, 55, 0.95); /* Adjust to match your theme */
   backdrop-filter: blur(4px);
 }
+
+/* --- NAVBAR FIXES --- */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background-color: #1a102f;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.logo-img {
+  height: 50px;
+  width: auto;
+  display: block;
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-links a {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* --- HERO & WATERMARK FIXES --- */
+.hero {
+  position: relative;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1a102f;
+  overflow: hidden; /* Stops watermark from exceeding section bounds */
+  text-align: center;
+  color: #ffffff;
+}
+
+/* Watermark logo positioned behind text without interfering with layout */
+.hero-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  max-width: 75vw;
+  opacity: 0.08; /* Subtle background watermark */
+  pointer-events: none; /* Prevents blocking clicks on buttons */
+  z-index: 1;
+}
+
+.overlay {
+  position: relative;
+  z-index: 2; /* Ensures text renders cleanly on top */
+  max-width: 750px;
+  padding: 20px;
+}
+
+.hero-buttons {
+  margin-top: 20px;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+/* --- MOBILE DRAWER FIXES --- */
+@media (max-width: 768px) {
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #2a1b4e;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .nav-menu {
+    position: fixed;
+    top: 74px;
+    right: -100%;
+    width: 260px;
+    height: calc(100vh - 74px);
+    background-color: #120b22;
+    transition: right 0.3s ease-in-out;
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .nav-menu.active {
+    right: 0;
+  }
+
+  .nav-links {
+    flex-direction: column;
+    padding: 30px 20px;
+    gap: 18px;
+  }
+}

@@ -2733,3 +2733,7 @@ main,
 .pdf-icon-btn:hover {
     background-color: #bd2130; /* Darker red on mouse hover */
 }
+.program-card {
+  background: rgba(40, 20, 55, 0.95); /* Adjust to match your theme */
+  backdrop-filter: blur(4px);
+}

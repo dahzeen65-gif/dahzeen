@@ -430,42 +430,51 @@ opacity:.2;
         height:auto;
     }
 
+    .hero-logo {
+        width: min(130px, 32vw);
+        max-width: 32vw;
+        margin-bottom: 18px;
+    }
+
     .overlay{
-        padding:24px 18px;
-        background: rgba(11, 29, 61, 0.9);
+        padding: 24px 18px;
+        width: min(92vw, 760px);
+        max-width: 760px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.45);
         border-radius: 18px;
-        width: calc(100% - 24px);
-        left: 12px;
-        right: 12px;
-        height: auto;
-        min-height: 220px;
-        box-shadow: 0 18px 40px rgba(11, 29, 61, 0.25);
     }
 
     .overlay h1{
-        font-size:clamp(2.2rem, 9vw, 3.8rem);
-        line-height:1.1;
-        color: #f5f7fb;
+        font-size: clamp(2.1rem, 6vw, 3.8rem);
+        line-height:1.08;
+        margin-bottom: 14px;
     }
 
     .overlay p{
-        width:100%;
-        font-size:1rem;
-        color: #f5f7fb;
+        width: min(100%, 620px);
+        font-size: clamp(0.95rem, 3vw, 1.35rem);
+        margin-bottom: 20px;
     }
 
     .hero-buttons{
         display:flex;
-        flex-direction:column;
-        align-items:stretch;
-        width:min(100%, 320px);
+        flex-wrap:wrap;
+        justify-content:center;
+        align-items:center;
+        gap:12px;
+        width:100%;
         margin:0 auto;
     }
 
     .hero-buttons a,
     .hero-buttons button{
-        width:100%;
-        margin:8px 0;
+        width:auto;
+        min-width: 180px;
+        margin:0;
+        padding: 12px 18px;
+        font-size: 0.95rem;
     }
 
     .stats{
@@ -474,9 +483,22 @@ opacity:.2;
         padding:70px 6%;
     }
 
+    .stat-card{
+        padding:22px 16px;
+    }
+
+    .stat-card h2{
+        font-size: clamp(1.7rem, 5vw, 2.6rem);
+    }
+
     .program-grid{
         grid-template-columns:1fr;
         padding:0 6%;
+    }
+
+    .card{
+        min-height:260px;
+        padding:22px 20px;
     }
 
     .programs,
@@ -486,8 +508,17 @@ opacity:.2;
         padding-right:6%;
     }
 
+    .membership{
+        padding-top:72px;
+        padding-bottom:72px;
+    }
+
     .membership h1{
-        font-size:2.2rem;
+        font-size: clamp(2.1rem, 6vw, 3rem);
+    }
+
+    .membership p{
+        font-size: clamp(1rem, 3vw, 1.4rem);
     }
 
     .footer-grid{
@@ -501,12 +532,23 @@ opacity:.2;
     }
 
     .hero-logo{
-        width:110px;
-        max-width:42%;
+        width: 104px;
+        max-width: 42%;
     }
 
-    .overlay h1{
-        font-size:2.1rem;
+    .overlay{
+        width: min(90vw, 420px);
+        padding: 20px 14px;
+    }
+
+    .hero-buttons{
+        flex-direction:column;
+        width:100%;
+    }
+
+    .hero-buttons a,
+    .hero-buttons button{
+        width:100%;
     }
 
     .programs h1,
@@ -515,7 +557,7 @@ opacity:.2;
     }
 
     .card{
-        min-height:260px;
+        min-height:240px;
     }
 }
 

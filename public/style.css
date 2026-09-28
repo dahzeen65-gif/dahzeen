@@ -2903,3 +2903,122 @@ main,
     gap: 18px;
   }
 }
+/* =========================================================
+   1. GLOBAL RESETS (PREVENTS SIDE-SCROLLING & GIANT IMAGES)
+   ========================================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* STOPS side-scrolling and right-side dark gaps */
+  position: relative;
+}
+
+/* Force all images to stay strictly inside their parent containers */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* =========================================================
+   2. HERO CONTAINER & WATERMARK FIX
+   ========================================================= */
+.hero {
+  position: relative;
+  width: 100%;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1a102f;
+  overflow: hidden; /* Clips background watermark strictly inside hero */
+  padding: 40px 16px;
+  text-align: center;
+  color: #ffffff;
+}
+
+/* Absolute Watermark Logo (Centred behind text with low opacity) */
+.hero-watermark,
+.hero-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 260px !important;
+  max-width: 70vw !important;
+  height: auto !important;
+  opacity: 0.08 !important; /* Soft subtle watermark */
+  pointer-events: none; /* Disables click blocking */
+  z-index: 1;
+}
+
+/* Hero Content Card */
+.overlay {
+  position: relative;
+  z-index: 2; /* Sits cleanly above watermark */
+  width: 100%;
+  max-width: 600px;
+  background: rgba(26, 16, 47, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 24px 16px;
+  margin: 0 auto;
+}
+
+.overlay h1 {
+  color: #ffffff;
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.overlay p {
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+}
+
+/* =========================================================
+   3. MOBILE DRAWER FIX (PREVENTS PAGE STRETCHING)
+   ========================================================= */
+.nav-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  height: 100vh;
+  background-color: #120b22;
+  z-index: 9999;
+  /* Use transform instead of right: -300px to prevent horizontal page expansion */
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  padding: 80px 20px 30px;
+}
+
+.nav-menu.active {
+  transform: translateX(0);
+}
+
+/* =========================================================
+   4. FOOTER & LINK CONTRAST FIXES
+   ========================================================= */
+footer, .footer {
+  background-color: #0d0718;
+  color: #ffffff;
+  padding: 40px 20px;
+}
+
+footer a, .footer a {
+  color: #a8b2d1; /* High contrast readable light grey-blue */
+  text-decoration: none;
+}
+
+footer a:hover {
+  color: #ffffff;
+}

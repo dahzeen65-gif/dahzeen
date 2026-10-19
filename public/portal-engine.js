@@ -2068,55 +2068,38 @@ function triggerStkPushRequest() {
 
 
 // ====== SECURE MINUTES DELETE WITH PIN CHALLENGE ======
-function deleteMinutesEntry(id) {
-    // 1. Double check intent
-    if (!confirm("Are you absolutely sure you want to permanently delete this meeting record from the MRT Vault?")) {
-        return; 
-    }
-
-    // 2. Prompt for Vault Security configuration PIN
-    const securityPin = prompt("🔒 [MRT SECURITY CHALLENGE]\nPlease enter the Vault Security Configuration PIN to authorize entry deletion:");
-    
-    if (securityPin === null) return; // User pressed Cancel
-
-    // Use your existing vault pin "482901" found in your load data engine
-    const CORRECT_VAULT_PIN = "482901"; 
-
-    if (securityPin.trim() !== CORRECT_VAULT_PIN) {
-        alert("🚫 Security Denied: Invalid Vault Security PIN. Access revoked.");
+async function deleteMinutesEntry(id) {
+    const securityPin = prompt('Enter the vault PIN to delete these meeting minutes:');
+    if (securityPin === null) return;
+    if (!securityPin.trim()) {
+        alert('A vault PIN is required.');
         return;
     }
 
-    // 3. Process structural local storage splice removal
     try {
-        let minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes)) || [];
-        
-        // Find row item position matching the timestamp ID
-        const index = minutesList.findIndex(item => item.id == id);
-        
-        if (index === -1) {
-            alert("Error: Record could not be traced inside the vault data arrays.");
-            return;
+        const response = await fetch(`/api/documents/minutes/${encodeURIComponent(id)}/delete-authorization`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'x-vault-pin': securityPin.trim() }
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.authorized) {
+            throw new Error(result.message || 'The vault PIN was rejected.');
         }
 
-        // Drop precisely 1 entry at that index location
-        minutesList.splice(index, 1);
-        
-        // Save back clean updated database list
-        localStorage.setItem(STORAGE_KEYS.minutes, JSON.stringify(minutesList));
-        
-        alert("🔒 Security authorized: Record cleanly wiped from the vault repository.");
-        
-        // Refresh the documents display structure
-        if (typeof renderDocumentsPage === 'function') {
-            renderDocumentsPage();
-        } else {
-            window.location.reload();
+        const minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes) || '[]');
+        const updatedMinutes = minutesList.filter(item => String(item.id) !== String(id));
+        if (updatedMinutes.length === minutesList.length) {
+            throw new Error('Meeting minutes record not found.');
         }
-        
+
+        localStorage.setItem(STORAGE_KEYS.minutes, JSON.stringify(updatedMinutes));
+        renderMinutesTableRepository();
+        if (typeof renderDocumentsPage === 'function') renderDocumentsPage();
+        alert('Meeting minutes deleted.');
     } catch (error) {
-        console.error("Vault manipulation failure:", error);
-        alert("Error executing secure database array deletion.");
+        console.error('Could not delete meeting minutes:', error);
+        alert(error.message || 'Unable to delete meeting minutes.');
     }
 }
 
@@ -2402,7 +2385,7 @@ function renderMinutesTableRepository() {
             </td>
             <td>
                 <button class="pdf-icon-btn" onclick="downloadMinutesPDF('${item.id}')" title="Get File as PDF">📄 PDF</button>
-                <button class="delete-icon-btn" onclick="deleteMinutesEntry('${item.id}')" title="Delete Entry">🗑️</button>
+                <button class="delete-icon-btn" onclick="deleteMinutesEntry('${item.id}')" title="Delete Meeting Minutes" aria-label="Delete Meeting Minutes">🗑️ Delete</button>
             </td>
         </tr>
     `).join('');
@@ -2467,50 +2450,6 @@ function viewMinutesFile(id) {
         // Temporarily adjust heading text to show edit mode status
         const modalTitle = document.querySelector("#documentUploadModal h2");
         if (modalTitle) modalTitle.innerHTML = `✏️ Edit Meeting Minutes Record`;
-    }
-}
-
-
-function deleteMinutesEntry(id) {
-    if (!confirm("Are you absolutely sure you want to permanently delete this meeting record from the MRT Vault?")) {
-        return; 
-    }
-
-    const securityPin = prompt("🔒 [MRT SECURITY CHALLENGE]\nPlease enter the Vault Security Configuration PIN:");
-    if (securityPin === null) return; 
-
-    const CORRECT_VAULT_PIN = "482901"; // Matches your master storage configuration PIN
-
-    if (securityPin.trim() !== CORRECT_VAULT_PIN) {
-        alert("🚫 Security Denied: Invalid PIN.");
-        return;
-    }
-
-    try {
-        let minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes)) || [];
-        const index = minutesList.findIndex(item => item.id == id);
-        
-        if (index === -1) {
-            alert("Error: Record could not be traced inside the vault arrays.");
-            return;
-        }
-
-        // Remove the item from local storage array
-        minutesList.splice(index, 1);
-        localStorage.setItem(STORAGE_KEYS.minutes, JSON.stringify(minutesList));
-        
-        alert("🔒 Security authorized: Record cleanly wiped.");
-        
-        // RE-RENDER SYSTEM WORKSPACE DIRECTLY
-        if (typeof renderMinutesTableRepository === 'function') {
-            renderMinutesTableRepository(); // Redraws our table rows immediately!
-        }
-        if (typeof renderDocumentsPage === 'function') {
-            renderDocumentsPage(); // Fires your global template manager refresh
-        }
-        
-    } catch (error) {
-        console.error("Vault manipulation failure:", error);
     }
 }
 

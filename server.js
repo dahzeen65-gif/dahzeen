@@ -296,29 +296,13 @@ app.get('/api/admin/applicants', requireAuth, async (req, res) => {
     return res.json(DB_APPLICANTS);
 });
 
-app.delete('/api/documents/minutes/:id', requireAuth, (req, res) => {
-    const entryId = req.params.id;
-    const clientPin = req.headers['x-vault-pin']; // Read the custom security header
-
-    // 1. Validate PIN entry matches vault configuration
+app.post('/api/documents/minutes/:id/delete-authorization', requireAuth, requireRole('Super Admin'), (req, res) => {
+    const clientPin = req.headers['x-vault-pin'];
     if (!clientPin || clientPin !== VAULT_MASTER_PIN) {
-        return res.status(403).json({ 
-            success: false, 
-            message: "Invalid Vault Security Configuration PIN. Authorization revoked." 
-        });
+        return res.status(403).json({ success: false, message: 'Invalid vault PIN.' });
     }
 
-    // 2. Locate row in database array (Update array name if using DB_MINUTES instead)
-    const index = DB_APPLICANTS.findIndex(item => item.id == entryId); 
-    
-    if (index === -1) {
-        return res.status(404).json({ success: false, message: "Record not found in database vault." });
-    }
-    
-    // 3. Securely drop the index row
-    DB_APPLICANTS.splice(index, 1);
-    
-    return res.json({ success: true, message: "Record successfully removed from the vault." });
+    return res.json({ success: true, authorized: true });
 });
 
 const GALLERY_STORAGE_BUCKET = process.env.SUPABASE_GALLERY_BUCKET || 'gallery-media';

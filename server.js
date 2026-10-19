@@ -653,3 +653,44 @@ app.delete('/api/programs/:id', requireAuth, requireRole('Super Admin'), async (
         return res.status(500).json({ success: false, message: 'Unable to delete program.' });
     }
 });
+
+// --- MEETING MINUTES ROUTES ---
+app.get('/api/minutes', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('minutes')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/minutes', async (req, res) => {
+  try {
+    const { date_time, venue, attendees, agenda, file_url, uploaded_by } = req.body;
+    const { data, error } = await supabase
+      .from('minutes')
+      .insert([{ date_time, venue, attendees, agenda, file_url, uploaded_by }]);
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/minutes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('minutes')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});

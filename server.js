@@ -4,6 +4,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const supabase = require('./public/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -445,3 +445,57 @@ app.delete('/api/gallery/:id', requireAuth, requireRole('Super Admin'), async (r
         return res.status(500).json({ success: false, message: 'Unable to delete this gallery item.' });
     }
 });
+
+// --- REPORTS ROUTES ---
+app.get('/api/reports', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/reports', async (req, res) => {
+  try {
+    const { title, category, description, file_url } = req.body;
+    const { data, error } = await supabase
+      .from('reports')
+      .insert([{ title, category, description, file_url }]);
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- PROGRAM TRACKERS ROUTES ---
+app.get('/api/trackers', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('program_trackers')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/trackers', async (req, res) => {
+  try {
+    const { program_name, status, metrics } = req.body;
+    const { data, error } = await supabase
+      .from('program_trackers')
+      .insert([{ program_name, status, metrics }]);
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});

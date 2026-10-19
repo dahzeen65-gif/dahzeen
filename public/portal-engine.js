@@ -115,6 +115,165 @@ const defaultReports = [];
 
 const defaultPrograms = [];
 
+let liveReports = null;
+let livePrograms = null;
+
+function getReports() {
+    return liveReports || getPortalData(STORAGE_KEYS.reports, defaultReports);
+}
+
+function getPrograms() {
+    return livePrograms || getPortalData(STORAGE_KEYS.programs, defaultPrograms);
+}
+
+function normalizeReportRecord(row) {
+    let details = {};
+    if (typeof row.description === 'string') {
+        try {
+            details = JSON.parse(row.description);
+        } catch {
+            details = { description: row.description };
+        }
+    } else if (row.description && typeof row.description === 'object') {
+        details = row.description;
+    }
+
+    return {
+        ...details,
+        id: row.id,
+        title: row.title || details.title || '',
+        type: row.category || details.type || 'Report',
+        dateFiled: details.dateFiled || (row.created_at ? new Date(row.created_at).toLocaleDateString() : ''),
+        filedBy: details.filedBy || '',
+        photo: row.file_url || details.photo || ''
+    };
+}
+
+function normalizeProgramRecord(row) {
+    let metrics = row.metrics || {};
+    if (typeof metrics === 'string') {
+        try {
+            metrics = JSON.parse(metrics);
+        } catch {
+            metrics = {};
+        }
+    }
+
+    return {
+        ...metrics,
+        id: row.id,
+        activityType: metrics.activityType || row.program_name || '',
+        createdDate: metrics.createdDate || row.updated_at || ''
+    };
+}
+
+function cacheReports() {
+    if (liveReports) localStorage.setItem(STORAGE_KEYS.reports, JSON.stringify(liveReports));
+}
+
+function cachePrograms() {
+    if (livePrograms) localStorage.setItem(STORAGE_KEYS.programs, JSON.stringify(livePrograms));
+}
+
+async function requestPortalApi(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: 'include',
+        ...options,
+        headers: {
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+        }
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+        throw new Error(result.message || 'The database request failed.');
+    }
+    return result;
+}
+
+async function refreshReportsAndPrograms() {
+    const refreshes = [];
+    if (document.querySelector('#reportsRegistryTable, #documentsReportsTable')) {
+        refreshes.push(
+            requestPortalApi('/api/reports')
+                .then(result => {
+                    liveReports = result.data.map(normalizeReportRecord);
+                    cacheReports();
+                })
+                .catch(error => console.error('Could not load reports from Supabase:', error))
+        );
+    }
+    if (document.querySelector('#programsScheduleTable, #documentsProgramsTable')) {
+        refreshes.push(
+            requestPortalApi('/api/programs')
+                .then(result => {
+                    livePrograms = result.data.map(normalizeProgramRecord);
+                    cachePrograms();
+                })
+                .catch(error => console.error('Could not load programs from Supabase:', error))
+        );
+    }
+    await Promise.all(refreshes);
+    if (document.querySelector('#reportsRegistryTable')) renderReportsTable();
+    if (document.querySelector('#programsScheduleTable')) renderProgramsTable();
+    if (document.querySelector('#documentsReportsTable, #documentsProgramsTable')) renderDocumentsPage();
+}
+
+async function createReport(report) {
+    const result = await requestPortalApi('/api/reports', {
+        method: 'POST',
+        body: JSON.stringify(report)
+    });
+    const existingReports = liveReports || [];
+    liveReports = [normalizeReportRecord(result.data), ...existingReports.filter(item => String(item.id) !== String(result.data.id))];
+    cacheReports();
+}
+
+async function updateReport(report) {
+    const result = await requestPortalApi(`/api/reports/${encodeURIComponent(report.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(report)
+    });
+    liveReports = getReports().map(item =>
+        String(item.id) === String(report.id) ? normalizeReportRecord(result.data) : item
+    );
+    cacheReports();
+}
+
+async function removeReport(id) {
+    await requestPortalApi(`/api/reports/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    liveReports = getReports().filter(item => String(item.id) !== String(id));
+    cacheReports();
+}
+
+async function createProgram(program) {
+    const result = await requestPortalApi('/api/programs', {
+        method: 'POST',
+        body: JSON.stringify(program)
+    });
+    const existingPrograms = livePrograms || [];
+    livePrograms = [normalizeProgramRecord(result.data), ...existingPrograms.filter(item => String(item.id) !== String(result.data.id))];
+    cachePrograms();
+}
+
+async function updateProgram(program) {
+    const result = await requestPortalApi(`/api/programs/${encodeURIComponent(program.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(program)
+    });
+    livePrograms = getPrograms().map(item =>
+        String(item.id) === String(program.id) ? normalizeProgramRecord(result.data) : item
+    );
+    cachePrograms();
+}
+
+async function removeProgram(id) {
+    await requestPortalApi(`/api/programs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    livePrograms = getPrograms().filter(item => String(item.id) !== String(id));
+    cachePrograms();
+}
+
+
 const defaultPolicies = [];
 const defaultSOPs = [];
 const defaultMinutes = [];
@@ -507,6 +666,9 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize Dashboard data injection
     renderDashboard();
     refreshGalleryFromSupabase().then(renderGallerySurfaces);
+    if (document.querySelector('#reportsRegistryTable, #programsScheduleTable, #documentsReportsTable, #documentsProgramsTable')) {
+        refreshReportsAndPrograms();
+    }
 });
 
 function renderHeroSlideshow() {
@@ -813,7 +975,7 @@ function hideReportForm() {
     if (container) container.style.display = 'none';
 }
 
-function handleReportFormSubmission(e) {
+async function handleReportFormSubmission(e) {
     e.preventDefault();
 
     const type = document.getElementById("activeFormType").value; 
@@ -850,13 +1012,16 @@ function handleReportFormSubmission(e) {
     const fileInput = document.getElementById('reportPhoto');
     const file = fileInput?.files?.[0];
 
-    function finalizeSave(obj) {
-        const current = getPortalData(STORAGE_KEYS.reports, defaultReports);
-        current.push(obj);
-        localStorage.setItem(STORAGE_KEYS.reports, JSON.stringify(current));
-        if (typeof hideReportForm === "function") hideReportForm();
-        document.getElementById("mrtActiveReportingForm")?.reset();
-        renderReportsTable();
+    async function finalizeSave(obj) {
+        try {
+            await createReport(obj);
+            if (typeof hideReportForm === "function") hideReportForm();
+            document.getElementById("mrtActiveReportingForm")?.reset();
+            renderReportsTable();
+        } catch (error) {
+            console.error('Could not save report:', error);
+            alert(error.message || 'Unable to save report to the database.');
+        }
     }
 
     if (file) {
@@ -867,7 +1032,7 @@ function handleReportFormSubmission(e) {
         };
         reader.readAsDataURL(file);
     } else {
-        finalizeSave(reportObject);
+        await finalizeSave(reportObject);
     }
 }
 
@@ -875,7 +1040,7 @@ function renderReportsTable() {
     const tableBody = document.querySelector("#reportsRegistryTable tbody");
     if (!tableBody) return;
 
-    let storedReports = getPortalData(STORAGE_KEYS.reports, defaultReports);
+    let storedReports = getReports();
     
     if (storedReports.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999; padding: 20px;">No documents filed in the local registry.</td></tr>`;
@@ -884,31 +1049,37 @@ function renderReportsTable() {
 
     tableBody.innerHTML = storedReports.map(r => `
         <tr>
-            <td><strong>${r.title}</strong>${r.photo ? `<br><img src="${r.photo}" alt="photo" style="max-width:100px; margin-top:6px; border:1px solid #e1e1e1; padding:4px;">` : ''}</td>
-            <td><span class="badge ${r.type.includes('Incident') ? 'executive' : 'public'}">${r.type}</span></td>
-            <td>${r.dateFiled}</td>
-            <td>${r.filedBy}</td>
+            <td><strong>${escapeGalleryText(r.title)}</strong>${r.photo ? `<br><img src="${escapeGalleryText(safeGalleryUrl(r.photo))}" alt="Report attachment" style="max-width:100px; margin-top:6px; border:1px solid #e1e1e1; padding:4px;">` : ''}</td>
+            <td><span class="badge ${r.type.includes('Incident') ? 'executive' : 'public'}">${escapeGalleryText(r.type)}</span></td>
+            <td>${escapeGalleryText(r.dateFiled)}</td>
+            <td>${escapeGalleryText(r.filedBy)}</td>
             <td>
-                <button class="delete-row-btn" onclick="deleteReportRecord(${r.id})" title="Delete Report">
+                <button class="delete-row-btn" data-report-delete="${escapeGalleryText(r.id)}" title="Delete Report">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </td>
         </tr>
     `).join('');
+
+    tableBody.querySelectorAll('[data-report-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteReportRecord(button.dataset.reportDelete));
+    });
 }
 
-function deleteReportRecord(id) {
-    if (confirm("Are you sure you want to permanently delete this report from your local workspace storage?")) {
-        let storedReports = getPortalData(STORAGE_KEYS.reports, defaultReports);
-        storedReports = storedReports.filter(report => report.id !== id);
-        localStorage.setItem(STORAGE_KEYS.reports, JSON.stringify(storedReports));
+async function deleteReportRecord(id) {
+    if (!confirm("Are you sure you want to permanently delete this report from the database?")) return;
+    try {
+        await removeReport(id);
         renderReportsTable();
         if (typeof renderDocumentsPage === 'function') renderDocumentsPage();
+    } catch (error) {
+        console.error('Could not delete report:', error);
+        alert(error.message || 'Unable to delete report from the database.');
     }
 }
 
 function downloadReportsAsJSON() {
-    const reports = getPortalData(STORAGE_KEYS.reports, defaultReports);
+    const reports = getReports();
     const dataStr = JSON.stringify(reports, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
@@ -920,7 +1091,7 @@ function downloadReportsAsJSON() {
 }
 
 function downloadReportsAsCSV() {
-    const reports = getPortalData(STORAGE_KEYS.reports, defaultReports);
+    const reports = getReports();
     if (reports.length === 0) {
         alert('No reports to download.');
         return;
@@ -946,7 +1117,7 @@ function downloadReportsAsCSV() {
 
 function printReports() {
     const printWindow = window.open('', '', 'width=900,height=600');
-    const reports = getPortalData(STORAGE_KEYS.reports, defaultReports);
+    const reports = getReports();
     
     let htmlContent = `
         <!DOCTYPE html>
@@ -1058,7 +1229,7 @@ function renderDocumentsReportsTable() {
     const tableBody = document.querySelector("#documentsReportsTable tbody");
     if (!tableBody) return;
 
-    const storedReports = getPortalData(STORAGE_KEYS.reports, defaultReports);
+    const storedReports = getReports();
     if (storedReports.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding: 20px;">No reports have been filed yet.</td></tr>`;
         return;
@@ -1066,18 +1237,22 @@ function renderDocumentsReportsTable() {
 
     tableBody.innerHTML = storedReports.map(r => `
         <tr>
-            <td>${r.dateFiled}</td>
-            <td>${r.type}</td>
-            <td>${r.title}</td>
-            <td>${r.filedBy}</td>
-            <td>${r.type.includes('Activity') ? (r.actDate || '-') : (r.incDate || '-')}</td>
+            <td>${escapeGalleryText(r.dateFiled)}</td>
+            <td>${escapeGalleryText(r.type)}</td>
+            <td>${escapeGalleryText(r.title)}</td>
+            <td>${escapeGalleryText(r.filedBy)}</td>
+            <td>${escapeGalleryText(r.type.includes('Activity') ? (r.actDate || '-') : (r.incDate || '-'))}</td>
             <td>
-                <button class="action-btn-purple" onclick="openEditReportForm(${r.id})" title="Edit Report">
+                <button class="action-btn-purple" data-report-edit="${escapeGalleryText(r.id)}" title="Edit Report">
                     <i class="fas fa-edit"></i>
                 </button>
             </td>
         </tr>
     `).join('');
+
+    tableBody.querySelectorAll('[data-report-edit]').forEach(button => {
+        button.addEventListener('click', () => openEditReportForm(button.dataset.reportEdit));
+    });
 }
 
 function renderMemberDocumentsTable() {
@@ -1153,7 +1328,7 @@ function deleteMemberDocumentEntry(id) {
 }
 
 function openEditReportForm(id) {
-    const report = getPortalData(STORAGE_KEYS.reports, defaultReports).find(r => r.id === id);
+    const report = getReports().find(r => String(r.id) === String(id));
     const container = document.getElementById("editReportContainer");
     if (!report || !container) return;
 
@@ -1172,27 +1347,27 @@ function renderEditReportFields(type, report = {}) {
         fieldsDiv.innerHTML = `
             <div class="form-group">
                 <label for="editActName">Activity Name *</label>
-                <input type="text" id="editActName" value="${report.title || ''}" required>
+                <input type="text" id="editActName" value="${escapeGalleryText(report.title || '')}" required>
             </div>
             <div class="form-group">
                 <label for="editActLead">Activity Lead *</label>
-                <input type="text" id="editActLead" value="${report.filedBy || ''}" required>
+                <input type="text" id="editActLead" value="${escapeGalleryText(report.filedBy || '')}" required>
             </div>
             <div class="form-group">
                 <label for="editActDate">Activity Date *</label>
-                <input type="date" id="editActDate" value="${report.actDate || ''}" required>
+                <input type="date" id="editActDate" value="${escapeGalleryText(report.actDate || '')}" required>
             </div>
             <div class="form-group">
                 <label for="editActParticipants">Number of Participants</label>
-                <input type="number" id="editActParticipants" value="${report.participants || ''}" min="0">
+                <input type="number" id="editActParticipants" value="${escapeGalleryText(report.participants || '')}" min="0">
             </div>
             <div class="form-group">
                 <label for="editActDescription">Activity Description</label>
-                <textarea id="editActDescription" rows="4">${report.description || ''}</textarea>
+                <textarea id="editActDescription" rows="4">${escapeGalleryText(report.description || '')}</textarea>
             </div>
             <div class="form-group">
                 <label for="editActBudget">Budget Used (KES)</label>
-                <input type="number" id="editActBudget" value="${report.budget || ''}" min="0" step="100">
+                <input type="number" id="editActBudget" value="${escapeGalleryText(report.budget || '')}" min="0" step="100">
             </div>
         `;
     } else {
@@ -1209,31 +1384,31 @@ function renderEditReportFields(type, report = {}) {
             </div>
             <div class="form-group">
                 <label for="editIncLoc">Location *</label>
-                <input type="text" id="editIncLoc" value="${report.incLoc || ''}" required>
+                <input type="text" id="editIncLoc" value="${escapeGalleryText(report.incLoc || '')}" required>
             </div>
             <div class="form-group">
                 <label for="editIncDate">Date & Time *</label>
-                <input type="datetime-local" id="editIncDate" value="${report.incDate || ''}" required>
+                <input type="datetime-local" id="editIncDate" value="${escapeGalleryText(report.incDate || '')}" required>
             </div>
             <div class="form-group">
                 <label for="editIncReporter">Reporter Name *</label>
-                <input type="text" id="editIncReporter" value="${report.filedBy || ''}" required>
+                <input type="text" id="editIncReporter" value="${escapeGalleryText(report.filedBy || '')}" required>
             </div>
             <div class="form-group">
                 <label for="editIncDescription">Incident Description</label>
-                <textarea id="editIncDescription" rows="4">${report.description || ''}</textarea>
+                <textarea id="editIncDescription" rows="4">${escapeGalleryText(report.description || '')}</textarea>
             </div>
             <div class="form-group">
                 <label for="editIncInjuries">Injuries/Casualties</label>
-                <input type="text" id="editIncInjuries" value="${report.injuries || ''}">
+                <input type="text" id="editIncInjuries" value="${escapeGalleryText(report.injuries || '')}">
             </div>
             <div class="form-group">
                 <label for="editIncDamage">Property Damage</label>
-                <input type="text" id="editIncDamage" value="${report.damage || ''}">
+                <input type="text" id="editIncDamage" value="${escapeGalleryText(report.damage || '')}">
             </div>
             <div class="form-group">
                 <label for="editIncActions">Actions Taken</label>
-                <textarea id="editIncActions" rows="3">${report.actions || ''}</textarea>
+                <textarea id="editIncActions" rows="3">${escapeGalleryText(report.actions || '')}</textarea>
             </div>
             <div class="form-group">
                 <label for="editIncStatus">Status *</label>
@@ -1247,12 +1422,12 @@ function renderEditReportFields(type, report = {}) {
     }
 }
 
-function handleEditReportFormSubmission(e) {
+async function handleEditReportFormSubmission(e) {
     e.preventDefault();
-    const id = parseInt(document.getElementById("editReportId")?.value, 10);
+    const id = document.getElementById("editReportId")?.value;
     const type = document.getElementById("editReportType")?.value;
-    let reports = getPortalData(STORAGE_KEYS.reports, defaultReports);
-    const index = reports.findIndex(report => report.id === id);
+    const reports = getReports();
+    const index = reports.findIndex(report => String(report.id) === String(id));
     if (index === -1) return;
 
     const updated = {
@@ -1293,11 +1468,15 @@ function handleEditReportFormSubmission(e) {
         updated.budget = '';
     }
 
-    reports[index] = updated;
-    localStorage.setItem(STORAGE_KEYS.reports, JSON.stringify(reports));
-    closeEditReportForm();
-    renderDocumentsPage();
-    if (document.querySelector("#reportsRegistryTable")) renderReportsTable();
+    try {
+        await updateReport(updated);
+        closeEditReportForm();
+        renderDocumentsPage();
+        if (document.querySelector("#reportsRegistryTable")) renderReportsTable();
+    } catch (error) {
+        console.error('Could not update report:', error);
+        alert(error.message || 'Unable to update report in the database.');
+    }
 }
 
 function closeEditReportForm() {
@@ -1309,7 +1488,7 @@ function renderDocumentsProgramsTable() {
     const tableBody = document.querySelector("#documentsProgramsTable tbody");
     if (!tableBody) return;
 
-    const programs = getPortalData(STORAGE_KEYS.programs, defaultPrograms);
+    const programs = getPrograms();
     if (programs.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#999; padding: 20px;">No programs are currently scheduled.</td></tr>`;
         return;
@@ -1317,23 +1496,27 @@ function renderDocumentsProgramsTable() {
 
     tableBody.innerHTML = programs.map(p => `
         <tr>
-            <td>${p.date}</td>
-            <td>${p.venue}</td>
-            <td>${p.activityType}</td>
-            <td>${p.peopleInCharge}</td>
-            <td>${p.itemsNeeded}</td>
-            <td>KES ${parseFloat(p.cost || 0).toLocaleString()}</td>
+            <td>${escapeGalleryText(p.date)}</td>
+            <td>${escapeGalleryText(p.venue)}</td>
+            <td>${escapeGalleryText(p.activityType)}</td>
+            <td>${escapeGalleryText(p.peopleInCharge)}</td>
+            <td>${escapeGalleryText(p.itemsNeeded)}</td>
+            <td>KES ${(Number(p.cost) || 0).toLocaleString()}</td>
             <td>
-                <button class="action-btn-purple" onclick="openEditProgramForm(${p.id})" title="Edit Program">
+                <button class="action-btn-purple" data-program-edit="${escapeGalleryText(p.id)}" title="Edit Program">
                     <i class="fas fa-edit"></i>
                 </button>
             </td>
         </tr>
     `).join('');
+
+    tableBody.querySelectorAll('[data-program-edit]').forEach(button => {
+        button.addEventListener('click', () => openEditProgramForm(button.dataset.programEdit));
+    });
 }
 
 function openEditProgramForm(id) {
-    const program = getPortalData(STORAGE_KEYS.programs, defaultPrograms).find(p => p.id === id);
+    const program = getPrograms().find(p => String(p.id) === String(id));
     const container = document.getElementById("editProgramContainer");
     if (!program || !container) return;
 
@@ -1348,14 +1531,14 @@ function openEditProgramForm(id) {
     container.style.display = 'block';
 }
 
-function handleEditProgramFormSubmission(e) {
+async function handleEditProgramFormSubmission(e) {
     e.preventDefault();
-    const id = parseInt(document.getElementById("editProgramId")?.value, 10);
-    let programs = getPortalData(STORAGE_KEYS.programs, defaultPrograms);
-    const index = programs.findIndex(program => program.id === id);
+    const id = document.getElementById("editProgramId")?.value;
+    const programs = getPrograms();
+    const index = programs.findIndex(program => String(program.id) === String(id));
     if (index === -1) return;
 
-    programs[index] = {
+    const updatedProgram = {
         ...programs[index],
         date: document.getElementById("editProgramDate")?.value || '',
         venue: document.getElementById("editProgramVenue")?.value || '',
@@ -1366,10 +1549,15 @@ function handleEditProgramFormSubmission(e) {
         notes: document.getElementById("editProgramNotes")?.value || ''
     };
 
-    localStorage.setItem(STORAGE_KEYS.programs, JSON.stringify(programs));
-    closeEditProgramForm();
-    renderDocumentsPage();
-    if (document.querySelector("#programsScheduleTable")) renderProgramsTable();
+    try {
+        await updateProgram(updatedProgram);
+        closeEditProgramForm();
+        renderDocumentsPage();
+        if (document.querySelector("#programsScheduleTable")) renderProgramsTable();
+    } catch (error) {
+        console.error('Could not update program:', error);
+        alert(error.message || 'Unable to update program in the database.');
+    }
 }
 
 function closeEditProgramForm() {
@@ -1436,11 +1624,9 @@ function hideProgramForm() {
     if (container) container.style.display = 'none';
 }
 
-function handleProgramFormSubmission(e) {
+async function handleProgramFormSubmission(e) {
     e.preventDefault();
-    
-    let programs = getPortalData(STORAGE_KEYS.programs, defaultPrograms);
-    
+
     const programObject = {
         id: Date.now(),
         date: document.getElementById("programDate")?.value || '',
@@ -1453,20 +1639,23 @@ function handleProgramFormSubmission(e) {
         createdDate: new Date().toLocaleDateString()
     };
 
-    programs.push(programObject);
-    localStorage.setItem(STORAGE_KEYS.programs, JSON.stringify(programs));
-    
-    document.getElementById("programForm")?.reset();
-    hideProgramForm();
-    renderProgramsTable();
-    if (typeof renderDocumentsPage === 'function') renderDocumentsPage();
+    try {
+        await createProgram(programObject);
+        document.getElementById("programForm")?.reset();
+        hideProgramForm();
+        renderProgramsTable();
+        if (typeof renderDocumentsPage === 'function') renderDocumentsPage();
+    } catch (error) {
+        console.error('Could not save program:', error);
+        alert(error.message || 'Unable to save program to the database.');
+    }
 }
 
 function renderProgramsTable() {
     const tableBody = document.querySelector("#programsScheduleTable tbody");
     if (!tableBody) return;
 
-    let programs = getPortalData(STORAGE_KEYS.programs, defaultPrograms);
+    let programs = getPrograms();
     
     if (programs.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#999; padding: 20px;">No programs scheduled yet.</td></tr>`;
@@ -1475,28 +1664,34 @@ function renderProgramsTable() {
 
     tableBody.innerHTML = programs.map(p => `
         <tr>
-            <td>${p.date}</td>
-            <td>${p.venue}</td>
-            <td>${p.activityType}</td>
-            <td>${p.peopleInCharge}</td>
-            <td>${p.itemsNeeded}</td>
-            <td>KES ${parseFloat(p.cost).toLocaleString()}</td>
+            <td>${escapeGalleryText(p.date)}</td>
+            <td>${escapeGalleryText(p.venue)}</td>
+            <td>${escapeGalleryText(p.activityType)}</td>
+            <td>${escapeGalleryText(p.peopleInCharge)}</td>
+            <td>${escapeGalleryText(p.itemsNeeded)}</td>
+            <td>KES ${(Number(p.cost) || 0).toLocaleString()}</td>
             <td>
-                <button class="delete-row-btn" onclick="deleteProgramRecord(${p.id})" title="Delete Program">
+                <button class="delete-row-btn" data-program-delete="${escapeGalleryText(p.id)}" title="Delete Program">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </td>
         </tr>
     `).join('');
+
+    tableBody.querySelectorAll('[data-program-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteProgramRecord(button.dataset.programDelete));
+    });
 }
 
-function deleteProgramRecord(id) {
-    if (confirm("Are you sure you want to permanently delete this program?")) {
-        let programs = getPortalData(STORAGE_KEYS.programs, defaultPrograms);
-        programs = programs.filter(program => program.id !== id);
-        localStorage.setItem(STORAGE_KEYS.programs, JSON.stringify(programs));
+async function deleteProgramRecord(id) {
+    if (!confirm("Are you sure you want to permanently delete this program?")) return;
+    try {
+        await removeProgram(id);
         renderProgramsTable();
         if (typeof renderDocumentsPage === 'function') renderDocumentsPage();
+    } catch (error) {
+        console.error('Could not delete program:', error);
+        alert(error.message || 'Unable to delete program from the database.');
     }
 }
 

@@ -86,7 +86,7 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-vault-pin']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -446,56 +446,226 @@ app.delete('/api/gallery/:id', requireAuth, requireRole('Super Admin'), async (r
     }
 });
 
-// --- REPORTS ROUTES ---
-app.get('/api/reports', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('reports')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+function supabaseUnavailable(res) {
+    return res.status(503).json({ success: false, message: 'Supabase is not configured on this server.' });
+}
+
+function normalizeReportInput(report) {
+    if (!report || typeof report !== 'object' || Array.isArray(report)) return null;
+    const title = String(report.title || '').trim();
+    const category = String(report.type || report.category || '').trim();
+    if (!title || !category) return null;
+
+    const details = { ...report };
+    delete details.id;
+    delete details.photo;
+
+    return {
+        title,
+        category,
+        description: JSON.stringify(details),
+        file_url: typeof report.photo === 'string' ? report.photo : null
+    };
+}
+
+function normalizeProgramInput(program) {
+    if (!program || typeof program !== 'object' || Array.isArray(program)) return null;
+    const date = String(program.date || '').trim();
+    const venue = String(program.venue || '').trim();
+    const activityType = String(program.activityType || '').trim();
+    const peopleInCharge = String(program.peopleInCharge || '').trim();
+    if (!date || !venue || !activityType || !peopleInCharge) return null;
+
+    return {
+        program_name: `${activityType} - ${venue}`,
+        status: 'Scheduled',
+        metrics: {
+            date,
+            venue,
+            activityType,
+            peopleInCharge,
+            itemsNeeded: String(program.itemsNeeded || ''),
+            cost: String(program.cost || '0'),
+            notes: String(program.notes || ''),
+            createdDate: String(program.createdDate || new Date().toLocaleDateString())
+        }
+    };
+}
+
+app.get('/api/reports', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    try {
+        const { data, error } = await supabase
+            .from('reports')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load reports:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load reports.' });
+        }
+        return res.json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('[Supabase] Reports fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load reports.' });
+    }
 });
 
-app.post('/api/reports', async (req, res) => {
-  try {
-    const { title, category, description, file_url } = req.body;
-    const { data, error } = await supabase
-      .from('reports')
-      .insert([{ title, category, description, file_url }]);
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.post('/api/reports', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const report = normalizeReportInput(req.body);
+    if (!report) return res.status(400).json({ success: false, message: 'Report title and type are required.' });
+
+    try {
+        const { data, error } = await supabase
+            .from('reports')
+            .insert([report])
+            .select('*')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to create report:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save report.' });
+        }
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Report create error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save report.' });
+    }
 });
 
-// --- PROGRAM TRACKERS ROUTES ---
-app.get('/api/trackers', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('program_trackers')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.put('/api/reports/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const report = normalizeReportInput(req.body);
+    if (!report) return res.status(400).json({ success: false, message: 'Report title and type are required.' });
+
+    try {
+        const { data, error } = await supabase
+            .from('reports')
+            .update(report)
+            .eq('id', req.params.id)
+            .select('*')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to update report:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to update report.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Report not found.' });
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Report update error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to update report.' });
+    }
 });
 
-app.post('/api/trackers', async (req, res) => {
-  try {
-    const { program_name, status, metrics } = req.body;
-    const { data, error } = await supabase
-      .from('program_trackers')
-      .insert([{ program_name, status, metrics }]);
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.delete('/api/reports/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    try {
+        const { data, error } = await supabase
+            .from('reports')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to delete report:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete report.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Report not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Report delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete report.' });
+    }
+});
+
+app.get('/api/programs', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    try {
+        const { data, error } = await supabase
+            .from('program_trackers')
+            .select('id, program_name, status, metrics, updated_at')
+            .order('updated_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load programs:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load programs.' });
+        }
+        return res.json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('[Supabase] Programs fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load programs.' });
+    }
+});
+
+app.post('/api/programs', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const program = normalizeProgramInput(req.body);
+    if (!program) {
+        return res.status(400).json({ success: false, message: 'Date, venue, activity type, and lead are required.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('program_trackers')
+            .insert([program])
+            .select('id, program_name, status, metrics, updated_at')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to create program:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save program.' });
+        }
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Program create error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save program.' });
+    }
+});
+
+app.put('/api/programs/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const program = normalizeProgramInput(req.body);
+    if (!program) {
+        return res.status(400).json({ success: false, message: 'Date, venue, activity type, and lead are required.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('program_trackers')
+            .update(program)
+            .eq('id', req.params.id)
+            .select('id, program_name, status, metrics, updated_at')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to update program:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to update program.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Program not found.' });
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Program update error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to update program.' });
+    }
+});
+
+app.delete('/api/programs/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    try {
+        const { data, error } = await supabase
+            .from('program_trackers')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to delete program:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete program.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Program not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Program delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete program.' });
+    }
 });

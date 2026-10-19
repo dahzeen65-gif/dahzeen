@@ -4,6 +4,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const supabase = require('./public/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -114,8 +115,41 @@ async function initializeDefaultAdmin() {
     }
 }
 
+async function syncApplicantsToSupabase() {
+    if (!supabase || !supabase.isConfigured) {
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase.from('applicants').select('*');
+        if (error) {
+            console.warn('[Supabase] Failed to sync applicants:', error.message);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            DB_APPLICANTS = data.map((row, index) => ({
+                id: row.id ?? index + 1,
+                name: row.name ?? 'Unknown Applicant',
+                email: row.email ?? '',
+                phone: row.phone ?? '',
+                accountNumber: row.account_number ?? row.accountNumber ?? '',
+                pillar: row.primary_pillar ?? row.pillar ?? '',
+                mpesaReference: row.mpesa_reference ?? row.mpesaReference ?? '',
+                status: row.status ?? 'Pending Review',
+                amountPaid: Number(row.amount_paid ?? row.amountPaid ?? 0),
+                date: row.created_at ?? row.date ?? new Date().toISOString()
+            }));
+            console.log('[Supabase] Applicant registry synced successfully.');
+        }
+    } catch (error) {
+        console.warn('[Supabase] Applicant sync error:', error.message);
+    }
+}
+
 async function startServer() {
     await initializeDefaultAdmin();
+    await syncApplicantsToSupabase();
     app.listen(PORT, () => {
         console.log(`========================================================`);
         console.log(`MRT Backend Server running locally on http://localhost:${PORT}`);
@@ -241,8 +275,25 @@ app.post('/api/auth/logout', (req, res) => {
 // ==========================================================================
 // 4. PROTECTION GUARD MIDDLEWARE
 // ==========================================================================
-app.get('/api/admin/applicants', requireAuth, (req, res) => {
-    res.json(DB_APPLICANTS);
+app.get('/api/admin/applicants', requireAuth, async (req, res) => {
+    if (supabase && supabase.isConfigured) {
+        try {
+            const { data, error } = await supabase.from('applicants').select('*');
+            if (error) {
+                console.warn('[Supabase] Failed to load applicants:', error.message);
+                return res.json(DB_APPLICANTS);
+            }
+            if (data && data.length > 0) {
+                return res.json(data);
+            }
+            return res.json(DB_APPLICANTS);
+        } catch (error) {
+            console.warn('[Supabase] Applicant fetch error:', error.message);
+            return res.json(DB_APPLICANTS);
+        }
+    }
+
+    return res.json(DB_APPLICANTS);
 });
 
 app.delete('/api/documents/minutes/:id', requireAuth, (req, res) => {
@@ -270,3 +321,127 @@ app.delete('/api/documents/minutes/:id', requireAuth, (req, res) => {
     return res.json({ success: true, message: "Record successfully removed from the vault." });
 });
 
+const GALLERY_STORAGE_BUCKET = process.env.SUPABASE_GALLERY_BUCKET || 'gallery-media';
+
+app.get('/api/gallery', async (req, res) => {
+    if (!supabase || !supabase.isConfigured) {
+        return res.status(503).json({ success: false, message: 'Gallery database is not configured.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('gallery')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('[Supabase] Failed to fetch gallery:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load gallery items.' });
+        }
+
+        return res.json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('[Supabase] Gallery fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load gallery items.' });
+    }
+});
+
+app.post(
+    '/api/gallery/upload',
+    requireAuth,
+    requireRole('Super Admin'),
+    express.raw({ type: '*/*', limit: '50mb' }),
+    async (req, res) => {
+        if (!supabase || !supabase.isConfigured) {
+            return res.status(503).json({ success: false, message: 'Gallery database is not configured.' });
+        }
+
+        const title = String(req.query.title || '').trim();
+        const category = String(req.query.category || '').trim();
+        const mediaType = req.query.media_type === 'video' ? 'video' : 'image';
+        const contentType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase();
+
+        if (!title || !category || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+            return res.status(400).json({ success: false, message: 'A title, category, and media file are required.' });
+        }
+
+        if (!contentType.startsWith(`${mediaType}/`)) {
+            return res.status(400).json({ success: false, message: 'The selected media type does not match the uploaded file.' });
+        }
+
+        const requestedExtension = path.extname(String(req.query.filename || '')).toLowerCase();
+        const extension = /^\.[a-z0-9]{1,10}$/.test(requestedExtension)
+            ? requestedExtension
+            : mediaType === 'video' ? '.mp4' : '.jpg';
+        const storagePath = `public/${Date.now()}-${require('crypto').randomUUID()}${extension}`;
+
+        try {
+            const { data: uploadedFile, error: uploadError } = await supabase.storage
+                .from(GALLERY_STORAGE_BUCKET)
+                .upload(storagePath, req.body, { contentType, upsert: false });
+
+            if (uploadError) {
+                console.error('[Supabase] Gallery file upload failed:', uploadError.message);
+                return res.status(500).json({ success: false, message: 'Unable to upload the gallery file. Check the gallery-media storage bucket and its policies.' });
+            }
+
+            const { data: publicUrlData } = supabase.storage
+                .from(GALLERY_STORAGE_BUCKET)
+                .getPublicUrl(uploadedFile.path);
+
+            const { data, error } = await supabase
+                .from('gallery')
+                .insert([{
+                    title,
+                    category,
+                    media_type: mediaType,
+                    media_url: publicUrlData.publicUrl
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Failed to save gallery record:', error.message);
+                const { error: cleanupError } = await supabase.storage
+                    .from(GALLERY_STORAGE_BUCKET)
+                    .remove([uploadedFile.path]);
+                if (cleanupError) {
+                    console.error('[Supabase] Failed to remove unreferenced gallery upload:', cleanupError.message);
+                }
+                return res.status(500).json({ success: false, message: 'The file uploaded, but its gallery record could not be saved.' });
+            }
+
+            return res.status(201).json({ success: true, data });
+        } catch (error) {
+            console.error('[Supabase] Gallery upload error:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to publish this gallery item.' });
+        }
+    }
+);
+
+app.delete('/api/gallery/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase || !supabase.isConfigured) {
+        return res.status(503).json({ success: false, message: 'Gallery database is not configured.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('gallery')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id');
+
+        if (error) {
+            console.error('[Supabase] Failed to delete gallery item:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete this gallery item.' });
+        }
+        if (!data || data.length === 0) {
+            return res.status(404).json({ success: false, message: 'Gallery item not found.' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Gallery delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete this gallery item.' });
+    }
+});

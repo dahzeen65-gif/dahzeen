@@ -41,6 +41,64 @@ const defaultGallery = [
     { id: 3, title: "MRT Activity Video", description: "Community action highlights", category: "Videos", type: "video", src: "images/video1.mp4" }
 ];
 
+let liveGalleryItems = null;
+
+function getGalleryItems() {
+    return liveGalleryItems || getPortalData(STORAGE_KEYS.gallery, defaultGallery);
+}
+
+function normalizeGalleryItem(item) {
+    return {
+        id: item.id,
+        title: item.title || item.caption || 'MRT Gallery Item',
+        description: item.description || item.title || item.caption || '',
+        category: item.category || 'Members',
+        type: item.media_type || item.type || 'image',
+        src: item.media_url || item.src || ''
+    };
+}
+
+function escapeGalleryText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+}
+
+function safeGalleryUrl(value) {
+    const url = String(value || '');
+    return /^(https?:\/\/|\/|\.\/|\.\.\/|images\/|data:(image|video)\/)/i.test(url) ? url : '';
+}
+
+async function refreshGalleryFromSupabase() {
+    try {
+        const response = await fetch('/api/gallery');
+        const result = await response.json();
+        if (!response.ok || !result.success || !Array.isArray(result.data)) {
+            throw new Error(result.message || 'Unable to load gallery items.');
+        }
+        liveGalleryItems = result.data.map(normalizeGalleryItem);
+        return true;
+    } catch (error) {
+        console.warn('Could not load the gallery from Supabase; using the local gallery fallback.', error);
+        return false;
+    }
+}
+
+function renderGallerySurfaces() {
+    const galleryGrid = document.getElementById('galleryGrid');
+    if (galleryGrid) {
+        const activeButton = document.querySelector('.gallery-filter-btn.active');
+        renderGalleryPage(activeButton?.dataset.category || 'All');
+    }
+    if (document.getElementById('heroSlideshow')) renderHeroSlideshow();
+    if (document.getElementById('documentsMediaGrid')) renderDocumentsMediaStore();
+    if (document.getElementById('galleryItemsCount')) renderDashboard();
+}
+
 const defaultHeroSlides = [
     { src: "images/tree1.jpg" },
     { src: "images/emergency1.jpg" },
@@ -149,7 +207,7 @@ function previewReportPhoto(event) {
 function renderDashboard() {
     const sales = getPortalData(STORAGE_KEYS.sales, defaultSales);
     const expenses = getPortalData(STORAGE_KEYS.expenses, defaultExpenses);
-    const galleryItems = getPortalData(STORAGE_KEYS.gallery, defaultGallery);
+    const galleryItems = getGalleryItems();
     
     // 1. Render Sales Table
     const salesBody = document.querySelector("#salesTable tbody");
@@ -306,7 +364,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const galleryForm = document.getElementById("galleryUploadForm");
     if (galleryForm) {
-        galleryForm.addEventListener("submit", function(event) {
+        galleryForm.addEventListener("submit", async function(event) {
             event.preventDefault();
             const mediaType = document.getElementById("media-type").value;
             const caption = document.getElementById("galleryCaption").value.trim();
@@ -319,26 +377,42 @@ document.addEventListener("DOMContentLoaded", function() {
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(loadEvent) {
-                const src = loadEvent.target.result;
-                const gallery = getPortalData(STORAGE_KEYS.gallery, defaultGallery);
-                gallery.push({
-                    id: Date.now(),
-                    title: caption,
-                    description: category === "Videos" ? "Video highlight" : caption,
-                    category,
-                    type: mediaType === "video" ? "video" : "image",
-                    src
+            if (!file.type.startsWith(`${mediaType}/`)) {
+                alert("The selected media type does not match the uploaded file.");
+                return;
+            }
+
+            const submitButton = galleryForm.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+            try {
+                const uploadUrl = new URL('/api/gallery/upload', window.location.origin);
+                uploadUrl.searchParams.set('title', caption);
+                uploadUrl.searchParams.set('category', category);
+                uploadUrl.searchParams.set('media_type', mediaType);
+                uploadUrl.searchParams.set('filename', file.name);
+
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                    body: file
                 });
-                localStorage.setItem(STORAGE_KEYS.gallery, JSON.stringify(gallery));
-                renderDashboard();
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Unable to publish this gallery item.');
+                }
+
+                await refreshGalleryFromSupabase();
+                renderGallerySurfaces();
                 fileInput.value = "";
                 document.getElementById("galleryCaption").value = "";
-                alert("Gallery item uploaded and will appear in the public gallery.");
-            };
-
-            reader.readAsDataURL(file);
+                alert("Gallery item uploaded and published to the website.");
+            } catch (error) {
+                console.error("Gallery upload failed:", error);
+                alert(error.message || "Unable to publish this gallery item.");
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
         });
     }
 
@@ -432,13 +506,14 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Initialize Dashboard data injection
     renderDashboard();
+    refreshGalleryFromSupabase().then(renderGallerySurfaces);
 });
 
 function renderHeroSlideshow() {
     const slideshow = document.getElementById("heroSlideshow");
     if (!slideshow) return;
 
-    const galleryItems = getPortalData(STORAGE_KEYS.gallery, defaultGallery).filter(item => item.type === "image");
+    const galleryItems = getGalleryItems().filter(item => item.type === "image");
     const slides = galleryItems.length ? galleryItems : defaultHeroSlides;
 
     slideshow.innerHTML = slides.map((item, index) => `
@@ -960,13 +1035,23 @@ function printReports() {
     printWindow.document.close();
 }
 
-function deleteMediaItem(id) {
+async function deleteMediaItem(id) {
     if (!confirm('Delete this media item from the site store?')) return;
-    let galleryItems = getPortalData(STORAGE_KEYS.gallery, defaultGallery);
-    galleryItems = galleryItems.filter(item => item.id !== id);
-    localStorage.setItem(STORAGE_KEYS.gallery, JSON.stringify(galleryItems));
-    renderDocumentsMediaStore();
-    if (document.querySelector('#galleryGrid')) renderGalleryPage();
+    try {
+        const response = await fetch(`/api/gallery/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Unable to delete this gallery item.');
+        }
+        await refreshGalleryFromSupabase();
+        renderGallerySurfaces();
+    } catch (error) {
+        console.error('Gallery delete failed:', error);
+        alert(error.message || 'Unable to delete this gallery item.');
+    }
 }
 
 function renderDocumentsReportsTable() {
@@ -1296,7 +1381,7 @@ function renderDocumentsMediaStore() {
     const mediaGrid = document.getElementById("documentsMediaGrid");
     if (!mediaGrid) return;
 
-    const galleryItems = getPortalData(STORAGE_KEYS.gallery, defaultGallery);
+    const galleryItems = getGalleryItems();
     if (!galleryItems.length) {
         mediaGrid.innerHTML = '<div class="gallery-empty-message"><p>No media uploaded yet.</p></div>';
         return;
@@ -1308,24 +1393,28 @@ function renderDocumentsMediaStore() {
                 <div class="media-visual">
                     ${item.type === 'video' ? `
                         <video controls>
-                            <source src="${item.src}" type="video/mp4">
+                            <source src="${escapeGalleryText(safeGalleryUrl(item.src))}">
                             Your browser does not support the video tag.
                         </video>
                     ` : `
-                        <img src="${item.src}" alt="${item.title}" />
+                        <img src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}" />
                     `}
                 </div>
                 <div class="gallery-card-body">
-                    <h4>${item.title}</h4>
-                    <p>${item.description}</p>
-                    <small>Category: ${item.category}</small>
-                    <button class="delete-row-btn" onclick="deleteMediaItem(${item.id})" title="Delete Media">
+                    <h4>${escapeGalleryText(item.title)}</h4>
+                    <p>${escapeGalleryText(item.description)}</p>
+                    <small>Category: ${escapeGalleryText(item.category)}</small>
+                    <button class="delete-row-btn" data-gallery-delete="${escapeGalleryText(item.id)}" title="Delete Media">
                         <i class="fas fa-trash-alt"></i> Delete
                     </button>
                 </div>
             </div>
         </div>
     `).join('');
+
+    mediaGrid.querySelectorAll('[data-gallery-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteMediaItem(button.dataset.galleryDelete));
+    });
 }
 
 function renderDocumentsPage() {
@@ -1415,13 +1504,13 @@ function renderGalleryPage(category = "All") {
     const galleryGrid = document.getElementById("galleryGrid");
     if (!galleryGrid) return;
 
-    const galleryItems = getPortalData(STORAGE_KEYS.gallery, defaultGallery);
+    const galleryItems = getGalleryItems();
     const filteredItems = category === "All"
         ? galleryItems
         : galleryItems.filter(item => item.category === category);
 
     if (!filteredItems.length) {
-        galleryGrid.innerHTML = `<div class="gallery-empty-message"><p>No gallery items found for ${category}.</p></div>`;
+        galleryGrid.innerHTML = `<div class="gallery-empty-message"><p>No gallery items found for ${escapeGalleryText(category)}.</p></div>`;
         return;
     }
 
@@ -1431,7 +1520,7 @@ function renderGalleryPage(category = "All") {
                 return `
                     <div class="slide-item ${index === 0 ? 'active' : ''}">
                         <video controls>
-                            <source src="${item.src}" type="video/mp4">
+                            <source src="${escapeGalleryText(safeGalleryUrl(item.src))}">
                             Your browser does not support the video tag.
                         </video>
                     </div>
@@ -1439,7 +1528,7 @@ function renderGalleryPage(category = "All") {
             }
             return `
                 <div class="slide-item ${index === 0 ? 'active' : ''}">
-                    <img src="${item.src}" alt="${item.title}">
+                    <img src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}">
                 </div>
             `;
         }).join('');
@@ -1454,7 +1543,7 @@ function renderGalleryPage(category = "All") {
                     ${slides}
                 </div>
                 <div class="media-info">
-                    <h3>${filteredItems[0].category} Gallery</h3>
+                    <h3>${escapeGalleryText(filteredItems[0].category)} Gallery</h3>
                     <p>${filteredItems.length} items in this category</p>
                 </div>
                 <div class="slideshow-dots">
@@ -1473,13 +1562,13 @@ function renderGalleryPage(category = "All") {
                 <div class="media-card">
                     <div class="media-visual">
                         <video controls>
-                            <source src="${item.src}" type="video/mp4">
+                            <source src="${escapeGalleryText(safeGalleryUrl(item.src))}">
                             Your browser does not support the video tag.
                         </video>
                     </div>
                     <div class="media-info">
-                        <h3>${item.title}</h3>
-                        <p>${item.description}</p>
+                        <h3>${escapeGalleryText(item.title)}</h3>
+                        <p>${escapeGalleryText(item.description)}</p>
                     </div>
                 </div>
             `;
@@ -1488,11 +1577,11 @@ function renderGalleryPage(category = "All") {
         return `
             <div class="media-card">
                 <div class="media-visual">
-                    <img src="${item.src}" alt="${item.title}">
+                    <img src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}">
                 </div>
                 <div class="media-info">
-                    <h3>${item.title}</h3>
-                    <p>${item.description}</p>
+                    <h3>${escapeGalleryText(item.title)}</h3>
+                    <p>${escapeGalleryText(item.description)}</p>
                 </div>
             </div>
         `;

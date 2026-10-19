@@ -274,7 +274,7 @@
                 
                 <div style="margin-bottom: 20px;">
                     <span style="font-size: 12px; text-transform: uppercase; color: #777; display: block; font-weight: 600;">One-Time Entry Fee</span>
-                    <strong style="font-size: 24px; color: #333;">KES 500</strong>
+                    <strong style="font-size: 24px; color: #333;">KES 1000</strong>
                     <p style="font-size: 12px; color: #666; margin-top: 3px;">Due immediately upon application approval to cover onboarding costs and initial volunteer registration processes.</p>
                 </div>
 
@@ -311,11 +311,11 @@
 
             <!-- Paybill Details Grid -->
             <div style="background: #f4fdf6; border: 1px dashed #1baf49; padding: 15px; border-radius: 4px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; font-size: 14px;">
-                <div><span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Business No (Paybill)</span><strong style="color: #1baf49; font-size: 16px;">247247</strong></div>
-                <div><span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Amount</span><strong style="color: #333; font-size: 16px;">KES 500.00</strong></div>
+                <div><span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Business No (Paybill)</span><strong style="color: #1baf49; font-size: 16px;">522522</strong></div>
+                <div><span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Amount</span><strong style="color: #333; font-size: 16px;">KES 1000.00</strong></div>
                 <div style="grid-column: span 2; border-top: 1px solid #e2f5e7; padding-top: 8px;">
                     <span style="color: #666; font-size: 11px; display:block; text-transform:uppercase;">Account Number</span>
-                    <strong id="mpesaGeneratedAccountNo" style="color: #5c2d91; font-size: 15px; letter-spacing: 0.5px;">MRT-XXXXX</strong>
+                    <strong id="mpesaGeneratedAccountNo" style="color: #5c2d91; font-size: 15px; letter-spacing: 0.5px;">1352516519</strong>
                 </div>
             </div>
 
@@ -333,7 +333,7 @@
                 <p style="font-size: 12px; color: #777; margin-top: 5px;">Processing transaction... Checking Paybill ledger hooks...</p>
             </div>
 
-            <button type="button" onclick="triggerStkPushRequest()" class="submit-btn" style="background: #1baf49; margin-top: 10px;">Confirm & Pay KES 500</button>
+            <button type="button" onclick="triggerStkPushRequest()" class="submit-btn" style="background: #1baf49; margin-top: 10px;">Confirm & Pay KES 1000.00</button>
             <button type="button" onclick="closePaymentModal()" style="background: none; border: none; color: #888; font-size: 12px; margin-top: 15px; cursor: pointer; text-decoration: underline;">Cancel</button>
         </div>
     </div>
@@ -507,7 +507,7 @@
 
         setTimeout(() => {
             const randomReceipt = 'SGK' + Math.floor(100000 + Math.random() * 900000);
-            const paymentAmount = 500;
+            const paymentAmount = 1000.00;
 
             let currentBankBalance = parseFloat(localStorage.getItem('mrt_bank_vault_balance')) || 25400.00;
             let newBankBalance = currentBankBalance + paymentAmount;
@@ -540,7 +540,7 @@
             document.getElementById('membershipForm').reset();
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            alert(`Payment Success! Receipt: ${randomReceipt}. KES 500 received for Account ${currentActiveApplication.accountNumber}.`);
+            alert(`Payment Success! Receipt: ${randomReceipt}. KES 1000 received for Account ${currentActiveApplication.accountNumber}.`);
             openVerificationPopup();
         }, 2500);
     }

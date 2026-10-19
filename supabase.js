@@ -14,9 +14,9 @@ if (supabaseUrl && supabaseKey) {
             detectSessionInUrl: false
         }
     });
+    supabase.isConfigured = true;
 } else {
-    console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_KEY. Database sync is disabled until environment values are configured.');
+    console.warn('[Supabase] Missing SUPABASE_URL or Supabase key. Database features are disabled until environment values are configured.');
 }
 
-module.exports = supabase;
-module.exports.isConfigured = Boolean(supabaseUrl && supabaseKey);
+module.exports = supabase || { isConfigured: false };

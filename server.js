@@ -181,18 +181,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ==========================================================================
 
 app.post('/api/auth/login', authLimiter, async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password } = req.body || {};
 
-    if (!username || !password) {
+    if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || !password) {
         return res.status(400).json({ success: false, message: 'Username and password are required.' });
     }
 
-    const user = DB_USERS.find(u => u.username.toLowerCase() === username.toLowerCase());
+    let user = DB_USERS.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+    if (!user && supabase.isConfigured) {
+        try {
+            const { data, error } = await supabase
+                .from('authorized_users')
+                .select('id,username')
+                .order('created_at', { ascending: true });
+            if (error) {
+                console.error('[Supabase] Could not verify authorized login user:', error.message);
+                return res.status(503).json({ success: false, message: 'Unable to verify the authorized users list.' });
+            }
+            const authorizedUser = (data || []).find(row =>
+                typeof row.username === 'string' && row.username.toLowerCase() === username.trim().toLowerCase()
+            );
+            if (authorizedUser) {
+                user = {
+                    id: `authorized-${authorizedUser.id}`,
+                    username: authorizedUser.username,
+                    password: DB_USERS[0]?.password,
+                    role: 'Super Admin'
+                };
+            }
+        } catch (error) {
+            console.error('[Supabase] Authorized login lookup failed:', error.message);
+            return res.status(503).json({ success: false, message: 'Unable to verify the authorized users list.' });
+        }
+    }
     if (!user) {
         return res.status(401).json({ success: false, message: 'Invalid credentials or unauthorized user account.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password || '');
     if (!isMatch) {
         return res.status(401).json({ success: false, message: 'Incorrect password selection.' });
     }
@@ -1391,4 +1417,80 @@ app.post('/api/treasury', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+// --- AUTHORIZED LOGIN USERS ROUTES ---
+app.get('/api/authorized-users', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('authorized_users')
+            .select('id,username,created_at')
+            .order('created_at', { ascending: true });
+        if (error) {
+            console.error('[Supabase] Failed to load authorized users:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load authorized users.' });
+        }
+        return res.json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('[Supabase] Authorized user fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load authorized users.' });
+    }
+});
+
+app.post('/api/authorized-users', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const username = String(req.body?.username || '').trim();
+    if (!username || username.length > 100) {
+        return res.status(400).json({ success: false, message: 'Enter a username of 1 to 100 characters.' });
+    }
+    if (DB_USERS.some(user => user.username.toLowerCase() === username.toLowerCase())) {
+        return res.status(409).json({ success: false, message: 'This username is already authorized.' });
+    }
+    try {
+        const { data: existing, error: lookupError } = await supabase
+            .from('authorized_users')
+            .select('id,username')
+            .ilike('username', username);
+        if (lookupError) {
+            console.error('[Supabase] Failed to check authorized username:', lookupError.message);
+            return res.status(500).json({ success: false, message: 'Unable to check authorized users.' });
+        }
+        if ((existing || []).some(user => user.username.toLowerCase() === username.toLowerCase())) {
+            return res.status(409).json({ success: false, message: 'This username is already authorized.' });
+        }
+        const { data, error } = await supabase
+            .from('authorized_users')
+            .insert([{ username }])
+            .select('id,username,created_at')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to add authorized user:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to add authorized user.' });
+        }
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Authorized user insert error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to add authorized user.' });
+    }
+});
+
+app.delete('/api/authorized-users/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('authorized_users')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to remove authorized user:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to remove authorized user.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Authorized user not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Authorized user deletion error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to remove authorized user.' });
+    }
 });

@@ -3,7 +3,6 @@ const STORAGE_KEYS = {
     events: 'mrt_portal_events',
     gallery: 'mrt_portal_gallery',
     accounts: 'mrt_portal_accounts',
-    allowedUsers: 'mrt_portal_allowed_users',
     reports: 'mrt_portal_filed_reports',
     programs: 'mrt_portal_programs'
 };
@@ -26,6 +25,9 @@ let liveFinanceBankBalance = null;
 let financeBankLoaded = false;
 let financeBankError = '';
 let financeBankRequest = null;
+let liveAuthorizedUsers = null;
+let authorizedUsersError = '';
+let authorizedUsersRequest = null;
 
 function getFinanceExpenses() {
     return liveFinanceExpenses || [];
@@ -140,8 +142,6 @@ const defaultAccounts = {
     bank: "145200"
 };
 
-const defaultAllowedUsers = ["Mbaruk Mbaruk"];
-
 const defaultReports = [];
 
 const defaultPrograms = [];
@@ -207,8 +207,6 @@ const defaultContracts = [];
 const defaultTemplates = [];
 let liveMemberDocuments = null;
 let memberDocumentsFetch = null;
-
-const LOGIN_PASSWORD = "MrTEam001";
 
 // ====== LOAD DATA ENGINE ======
 function getPortalData(key, defaultData) {
@@ -442,30 +440,30 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const loginForm = document.querySelector(".login-form");
     if (loginForm) {
-        loginForm.addEventListener("submit", function(event) {
+        loginForm.addEventListener("submit", async function(event) {
             event.preventDefault();
             const username = document.getElementById("login-username").value.trim();
             const password = document.getElementById("login-password").value;
             const message = document.getElementById("loginMessage");
-            const allowedUsers = getPortalData(STORAGE_KEYS.allowedUsers, defaultAllowedUsers);
 
             if (!username || !password) {
                 if (message) message.innerText = "Please enter both username and password.";
                 return;
             }
 
-            if (password !== LOGIN_PASSWORD) {
-                if (message) message.innerText = "Incorrect password.";
-                return;
+            const submitButton = loginForm.querySelector('[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+            try {
+                await requestFinanceApi('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password })
+                });
+                window.location.href = "dashboard.html";
+            } catch (error) {
+                if (message) message.innerText = error.message || "Unable to sign in.";
+            } finally {
+                if (submitButton) submitButton.disabled = false;
             }
-
-            const usernameMatch = allowedUsers.some(user => user.toLowerCase() === username.toLowerCase());
-            if (!usernameMatch) {
-                if (message) message.innerText = "This username is not authorized. Add it through the vault.";
-                return;
-            }
-
-            window.location.href = "dashboard.html";
         });
     }
 
@@ -695,43 +693,75 @@ function renderVaultAccounts() {
 }
 
 function renderVaultUserList() {
-    const users = getPortalData(STORAGE_KEYS.allowedUsers, defaultAllowedUsers);
     const list = document.getElementById("vaultUserList");
     if (!list) return;
 
-    list.innerHTML = users.map((user, index) => `
+    if (liveAuthorizedUsers === null) {
+        list.innerHTML = `<p>${escapeMinuteHtml(authorizedUsersError || 'Loading authorized users…')}</p>`;
+        if (!authorizedUsersRequest) {
+            authorizedUsersRequest = requestFinanceApi('/api/authorized-users')
+                .then(result => {
+                    liveAuthorizedUsers = result.data;
+                    authorizedUsersError = '';
+                    renderVaultUserList();
+                })
+                .catch(error => {
+                    authorizedUsersError = error.message || 'Unable to load authorized users.';
+                    console.error('Could not load authorized users:', error);
+                    list.innerHTML = `<p style="color:#b00020;">${escapeMinuteHtml(authorizedUsersError)}</p>`;
+                })
+                .finally(() => {
+                    authorizedUsersRequest = null;
+                });
+        }
+        return;
+    }
+
+    if (!liveAuthorizedUsers.length) {
+        list.innerHTML = '<p>No additional authorized users.</p>';
+        return;
+    }
+    list.innerHTML = liveAuthorizedUsers.map(user => `
         <div class="vault-user-entry">
-            <span>${user}</span>
-            <button class="remove-user-btn" onclick="removeVaultUser(${index})">Remove</button>
+            <span>${escapeMinuteHtml(user.username)}</span>
+            <button class="remove-user-btn" data-authorized-user-id="${escapeMinuteHtml(user.id)}">Remove</button>
         </div>
     `).join('');
+    list.querySelectorAll('[data-authorized-user-id]').forEach(button => {
+        button.addEventListener('click', () => removeVaultUser(button.dataset.authorizedUserId));
+    });
 }
 
-function addVaultUser() {
+async function addVaultUser() {
     const input = document.getElementById("vaultUserInput");
     if (!input) return;
     const value = input.value.trim();
     if (!value) return;
 
-    const users = getPortalData(STORAGE_KEYS.allowedUsers, defaultAllowedUsers);
-    const exists = users.some(user => user.toLowerCase() === value.toLowerCase());
-    if (exists) {
-        alert("This username is already authorized.");
-        return;
+    try {
+        const result = await requestFinanceApi('/api/authorized-users', {
+            method: 'POST',
+            body: JSON.stringify({ username: value })
+        });
+        liveAuthorizedUsers = [result.data, ...(liveAuthorizedUsers || [])];
+        input.value = "";
+        renderVaultUserList();
+    } catch (error) {
+        console.error('Could not add authorized user:', error);
+        alert(error.message || 'Unable to add authorized user.');
     }
-
-    users.push(value);
-    localStorage.setItem(STORAGE_KEYS.allowedUsers, JSON.stringify(users));
-    input.value = "";
-    renderVaultUserList();
 }
 
-function removeVaultUser(index) {
-    const users = getPortalData(STORAGE_KEYS.allowedUsers, defaultAllowedUsers);
-    if (index < 0 || index >= users.length) return;
-    users.splice(index, 1);
-    localStorage.setItem(STORAGE_KEYS.allowedUsers, JSON.stringify(users));
-    renderVaultUserList();
+async function removeVaultUser(id) {
+    if (!confirm('Remove this user from the shared authorized-users list?')) return;
+    try {
+        await requestFinanceApi(`/api/authorized-users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        liveAuthorizedUsers = (liveAuthorizedUsers || []).filter(user => String(user.id) !== String(id));
+        renderVaultUserList();
+    } catch (error) {
+        console.error('Could not remove authorized user:', error);
+        alert(error.message || 'Unable to remove authorized user.');
+    }
 }
 
 async function saveVaultAccount(type) {

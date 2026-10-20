@@ -83,10 +83,31 @@
     </div>
 
     <script>
-        function loadMemberDocumentRegistry() {
+        let memberDocumentRegistry = [];
+
+        function escapeMemberDocumentText(value) {
+            return String(value || '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
+
+        async function loadMemberDocumentRegistry() {
             const tableBody = document.querySelector('#memberDocumentsTable tbody');
+            if (!tableBody) return;
             tableBody.innerHTML = '';
-            const documents = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
+            try {
+                const response = await fetch('/api/member-documents', { credentials: 'include' });
+                const result = await response.json();
+                if (!response.ok || !result.success || !Array.isArray(result.data)) {
+                    throw new Error(result.message || 'Unable to load member documents.');
+                }
+                memberDocumentRegistry = result.data;
+            } catch (error) {
+                console.error('Could not load member documents:', error);
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#b00020; padding:20px;">${escapeMemberDocumentText(error.message || 'Unable to load member documents.')}</td></tr>`;
+                return;
+            }
+            const documents = memberDocumentRegistry;
 
             if (documents.length === 0) {
                 tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding: 20px;">No member document bundles have been submitted yet.</td></tr>';
@@ -96,44 +117,42 @@
             documents.forEach(doc => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${doc.memberName}</td>
-                    <td>${doc.memberEmail}</td>
-                    <td>${doc.submittedAt}</td>
+                    <td>${escapeMemberDocumentText(doc.memberName)}</td>
+                    <td>${escapeMemberDocumentText(doc.memberEmail)}</td>
                     <td>
-                        <strong>ID card</strong><br>
-                        <strong>CV</strong><br>
-                        <strong>Certificates</strong><br>
-                        <strong>Passport Photo</strong><br>
-                        ${doc.files.otherDocs ? '<strong>Other docs</strong>' : ''}
+                        ${escapeMemberDocumentText(doc.requiredDocuments)}
                     </td>
+                    <td>${escapeMemberDocumentText(doc.submittedAt)}</td>
                     <td>
-                        <button class="action-btn-purple" onclick="showMemberDocumentDetails(${doc.id})">View bundle</button>
-                        <button class="delete-row-btn" onclick="deleteMemberSubmission(${doc.id})" title="Delete Submission"><i class="fas fa-trash-alt"></i></button>
+                        <button class="action-btn-purple" data-member-view="${escapeMemberDocumentText(doc.id)}">View bundle</button>
+                        <button class="delete-row-btn" data-member-delete="${escapeMemberDocumentText(doc.id)}" title="Delete Submission"><i class="fas fa-trash-alt"></i></button>
                     </td>
                 `;
                 tableBody.appendChild(row);
             });
+
+            tableBody.querySelectorAll('[data-member-view]').forEach(button => {
+                button.addEventListener('click', () => showMemberDocumentDetails(button.dataset.memberView));
+            });
+            tableBody.querySelectorAll('[data-member-delete]').forEach(button => {
+                button.addEventListener('click', () => deleteMemberSubmission(button.dataset.memberDelete));
+            });
         }
 
         function showMemberDocumentDetails(id) {
-            const documents = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
-            const doc = documents.find(item => item.id === id);
+            const doc = memberDocumentRegistry.find(item => String(item.id) === String(id));
             if (!doc) return;
 
             const details = document.getElementById('memberDetailsContent');
             details.innerHTML = `
                 <div style="display:grid; gap: 16px;">
-                    <div><strong>Name:</strong> ${doc.memberName}</div>
-                    <div><strong>Email / ID:</strong> ${doc.memberEmail}</div>
-                    <div><strong>Submitted:</strong> ${doc.submittedAt}</div>
-                    <div><strong>Notes:</strong> ${doc.notes || 'None'}</div>
+                    <div><strong>Name:</strong> ${escapeMemberDocumentText(doc.memberName)}</div>
+                    <div><strong>Email / ID:</strong> ${escapeMemberDocumentText(doc.memberEmail)}</div>
+                    <div><strong>Submitted:</strong> ${escapeMemberDocumentText(doc.submittedAt)}</div>
+                    <div><strong>Notes:</strong> ${escapeMemberDocumentText(doc.notes || 'None')}</div>
                     <div><strong>Files available for download:</strong></div>
                     <div style="display:grid; gap: 10px;">
-                        <a href="${doc.files.idCard.data}" download="${doc.files.idCard.name}" class="download-link"><i class="fas fa-id-card"></i> Download ID Card</a>
-                        <a href="${doc.files.cv.data}" download="${doc.files.cv.name}" class="download-link"><i class="fas fa-file-alt"></i> Download CV</a>
-                        <a href="${doc.files.certificates.data}" download="${doc.files.certificates.name}" class="download-link"><i class="fas fa-certificate"></i> Download Certificates</a>
-                        <a href="${doc.files.passportPhoto.data}" download="${doc.files.passportPhoto.name}" class="download-link"><i class="fas fa-camera"></i> Download Passport Photo</a>
-                        ${doc.files.otherDocs ? `<a href="${doc.files.otherDocs.data}" download="${doc.files.otherDocs.name}" class="download-link"><i class="fas fa-file"></i> Download Other Documents</a>` : ''}
+                        ${Object.entries(doc.files || {}).map(([key, file]) => `<a href="${escapeMemberDocumentText(file.data)}" download="${escapeMemberDocumentText(file.name)}" class="download-link"><i class="fas fa-file"></i> Download ${escapeMemberDocumentText(file.name || key)}</a>`).join('')}
                     </div>
                 </div>
             `;
@@ -144,13 +163,22 @@
             document.getElementById('memberDocumentDetails').style.display = 'none';
         }
 
-        function deleteMemberSubmission(id) {
+        async function deleteMemberSubmission(id) {
             if (!confirm('Permanently delete this member document bundle?')) return;
-            const documents = JSON.parse(localStorage.getItem('mrt_portal_member_documents') || '[]');
-            const filtered = documents.filter(doc => doc.id !== id);
-            localStorage.setItem('mrt_portal_member_documents', JSON.stringify(filtered));
-            loadMemberDocumentRegistry();
-            closeMemberDetails();
+            try {
+                const response = await fetch(`/api/member-documents/${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || 'Unable to delete member documents.');
+                memberDocumentRegistry = memberDocumentRegistry.filter(doc => String(doc.id) !== String(id));
+                closeMemberDetails();
+                await loadMemberDocumentRegistry();
+            } catch (error) {
+                console.error('Could not delete member documents:', error);
+                alert(error.message || 'Unable to delete member documents.');
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -162,7 +190,6 @@
     </script>
 </body>
 </html>
-
 
 
 

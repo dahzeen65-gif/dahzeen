@@ -4,6 +4,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const supabase = require('./supabase');
 
 const app = express();
@@ -98,9 +99,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// In-memory data store placeholder
 let DB_USERS = [];
-let DB_APPLICANTS = [];
 
 async function initializeDefaultAdmin() {
     if (DB_USERS.length === 0) {
@@ -115,41 +114,8 @@ async function initializeDefaultAdmin() {
     }
 }
 
-async function syncApplicantsToSupabase() {
-    if (!supabase || !supabase.isConfigured) {
-        return;
-    }
-
-    try {
-        const { data, error } = await supabase.from('applicants').select('*');
-        if (error) {
-            console.warn('[Supabase] Failed to sync applicants:', error.message);
-            return;
-        }
-
-        if (data && data.length > 0) {
-            DB_APPLICANTS = data.map((row, index) => ({
-                id: row.id ?? index + 1,
-                name: row.name ?? 'Unknown Applicant',
-                email: row.email ?? '',
-                phone: row.phone ?? '',
-                accountNumber: row.account_number ?? row.accountNumber ?? '',
-                pillar: row.primary_pillar ?? row.pillar ?? '',
-                mpesaReference: row.mpesa_reference ?? row.mpesaReference ?? '',
-                status: row.status ?? 'Pending Review',
-                amountPaid: Number(row.amount_paid ?? row.amountPaid ?? 0),
-                date: row.created_at ?? row.date ?? new Date().toISOString()
-            }));
-            console.log('[Supabase] Applicant registry synced successfully.');
-        }
-    } catch (error) {
-        console.warn('[Supabase] Applicant sync error:', error.message);
-    }
-}
-
 async function startServer() {
     await initializeDefaultAdmin();
-    await syncApplicantsToSupabase();
     app.listen(PORT, () => {
         console.log(`========================================================`);
         console.log(`MRT Backend Server running locally on http://localhost:${PORT}`);
@@ -198,7 +164,6 @@ const protectedPages = [
     'reports.html',
     'settings.html',
     'member-document-review.html',
-    'member-document-upload.html',
     'fas fa-cog.html'
 ];
 
@@ -275,25 +240,25 @@ app.post('/api/auth/logout', (req, res) => {
 // ==========================================================================
 // 4. PROTECTION GUARD MIDDLEWARE
 // ==========================================================================
-app.get('/api/admin/applicants', requireAuth, async (req, res) => {
-    if (supabase && supabase.isConfigured) {
-        try {
-            const { data, error } = await supabase.from('applicants').select('*');
-            if (error) {
-                console.warn('[Supabase] Failed to load applicants:', error.message);
-                return res.json(DB_APPLICANTS);
-            }
-            if (data && data.length > 0) {
-                return res.json(data);
-            }
-            return res.json(DB_APPLICANTS);
-        } catch (error) {
-            console.warn('[Supabase] Applicant fetch error:', error.message);
-            return res.json(DB_APPLICANTS);
+app.get('/api/admin/applicants', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load applicants:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load applicants.' });
         }
+        return res.json({
+            success: true,
+            data: (data || []).map(normalizeApplicantRow)
+        });
+    } catch (error) {
+        console.error('[Supabase] Applicant fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load applicants.' });
     }
-
-    return res.json(DB_APPLICANTS);
 });
 
 const GALLERY_STORAGE_BUCKET = process.env.SUPABASE_GALLERY_BUCKET || 'gallery-media';
@@ -756,5 +721,414 @@ app.delete('/api/minutes/:id', requireAuth, requireRole('Super Admin'), async (r
     } catch (error) {
         console.error('[Supabase] Meeting minutes delete error:', error.message);
         return res.status(500).json({ success: false, message: 'Unable to delete meeting minutes.' });
+    }
+});
+
+// --- APPLICANTS ROUTES ---
+app.post('/api/applicants', async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const {
+        first_name,
+        last_name,
+        phone,
+        email,
+        primary_pillar,
+        mpesa_reference,
+        allocated_account_no
+    } = req.body || {};
+    if (![first_name, last_name, phone, email, primary_pillar, allocated_account_no].every(value => String(value || '').trim())) {
+        return res.status(400).json({ success: false, message: 'Name, phone, email, pillar, and account number are required.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .insert([{
+                first_name: String(first_name).trim(),
+                last_name: String(last_name).trim(),
+                phone: String(phone).trim(),
+                email: String(email).trim(),
+                primary_pillar: String(primary_pillar).trim(),
+                mpesa_reference: String(mpesa_reference || '').trim(),
+                allocated_account_no: String(allocated_account_no).trim(),
+                status: String(mpesa_reference || '').trim() ? 'Awaiting Verification' : 'Pending Review',
+                registration_fee: 1000
+            }])
+            .select('*')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to save applicant:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save applicant.' });
+        }
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Applicant save error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save applicant.' });
+    }
+});
+
+const applicantStatuses = new Set([
+    'Pending Review',
+    'Awaiting Verification',
+    'Password Setup Email Sent',
+    'Approved Active'
+]);
+
+function normalizeApplicantRow(row) {
+    return {
+        id: row.id,
+        firstName: row.first_name || '',
+        lastName: row.last_name || '',
+        name: [row.first_name, row.last_name].filter(Boolean).join(' '),
+        email: row.email || '',
+        phone: row.phone || '',
+        accountNumber: row.allocated_account_no || '',
+        pillar: row.primary_pillar || '',
+        mpesaRef: row.mpesa_reference || '',
+        paymentStatus: row.mpesa_reference ? 'Paid' : 'Pending',
+        status: row.status || 'Pending Review',
+        amountPaid: Number(row.registration_fee || 0),
+        dateSubmitted: row.created_at ? new Date(row.created_at).toLocaleDateString() : ''
+    };
+}
+
+app.put('/api/admin/applicants/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const { status } = req.body || {};
+    if (!applicantStatuses.has(status)) {
+        return res.status(400).json({ success: false, message: 'Invalid applicant status.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .update({ status })
+            .eq('id', req.params.id)
+            .select('id,status')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to update applicant status:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to update applicant status.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Applicant not found.' });
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Applicant status update error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to update applicant status.' });
+    }
+});
+
+app.post('/api/admin/applicants/:id/password-setup-link', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .update({ status: 'Password Setup Email Sent' })
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to prepare applicant password setup:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to prepare password setup link.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Applicant not found.' });
+
+        const setupToken = jwt.sign(
+            { purpose: 'member-password-setup', applicantId: data.id },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+        return res.json({ success: true, setupToken });
+    } catch (error) {
+        console.error('[Supabase] Applicant password setup error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to prepare password setup link.' });
+    }
+});
+
+app.get('/api/applicants/password-setup/:token', async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    let decoded;
+    try {
+        decoded = jwt.verify(req.params.token, JWT_SECRET);
+    } catch {
+        return res.status(400).json({ success: false, message: 'This password setup link is invalid or expired.' });
+    }
+    if (decoded.purpose !== 'member-password-setup' || !decoded.applicantId) {
+        return res.status(400).json({ success: false, message: 'This password setup link is invalid or expired.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .select('*')
+            .eq('id', decoded.applicantId)
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to resolve password setup applicant:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to validate password setup link.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Applicant not found.' });
+        if (data.status !== 'Password Setup Email Sent') {
+            return res.status(400).json({ success: false, message: 'This password setup link is no longer active.' });
+        }
+        return res.json({ success: true, data: normalizeApplicantRow(data) });
+    } catch (error) {
+        console.error('[Supabase] Password setup lookup error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to validate password setup link.' });
+    }
+});
+
+app.post('/api/applicants/password-setup/complete', async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    let decoded;
+    try {
+        decoded = jwt.verify(req.body?.token, JWT_SECRET);
+    } catch {
+        return res.status(400).json({ success: false, message: 'This password setup link is invalid or expired.' });
+    }
+    if (decoded.purpose !== 'member-password-setup' || !decoded.applicantId) {
+        return res.status(400).json({ success: false, message: 'This password setup link is invalid or expired.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .update({ status: 'Approved Active' })
+            .eq('id', decoded.applicantId)
+            .eq('status', 'Password Setup Email Sent')
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to complete applicant password setup:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to complete password setup.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Applicant not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Password setup completion error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to complete password setup.' });
+    }
+});
+
+app.delete('/api/admin/applicants/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('applicants')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to delete applicant:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete applicant.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Applicant not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Applicant delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete applicant.' });
+    }
+});
+
+// --- MEMBER DOCUMENTS ROUTES ---
+const MEMBER_DOCUMENTS_BUCKET = process.env.SUPABASE_MEMBER_DOCUMENTS_BUCKET || 'member-documents';
+const MEMBER_DOCUMENT_KEYS = ['idCard', 'cv', 'certificates', 'passportPhoto', 'otherDocs'];
+const MEMBER_DOCUMENT_LABELS = {
+    idCard: 'ID Card',
+    cv: 'CV',
+    certificates: 'Certificates',
+    passportPhoto: 'Passport Photo',
+    otherDocs: 'Other Documents'
+};
+const MEMBER_DOCUMENT_MIME_TYPES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+]);
+const MAX_MEMBER_DOCUMENT_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_MEMBER_DOCUMENT_TOTAL_BYTES = 10 * 1024 * 1024;
+
+function parseMemberDocumentPaths(value) {
+    if (typeof value !== 'string') return {};
+    try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function parseRequiredMemberDocuments(value) {
+    if (typeof value !== 'string') return { documents: '', notes: '' };
+    try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return {
+                documents: Array.isArray(parsed.documents) ? parsed.documents.join(', ') : '',
+                notes: typeof parsed.notes === 'string' ? parsed.notes : ''
+            };
+        }
+    } catch {
+        return { documents: value, notes: '' };
+    }
+    return { documents: value, notes: '' };
+}
+
+function safeMemberDocumentName(name) {
+    const basename = path.basename(String(name || 'document').replace(/\\/g, '/'));
+    return basename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'document';
+}
+
+function parseMemberDocumentDataUrl(file) {
+    const match = typeof file?.data === 'string'
+        ? file.data.match(/^data:([^;,]+);base64,([A-Za-z0-9+/]+={0,2})$/)
+        : null;
+    if (!match || !MEMBER_DOCUMENT_MIME_TYPES.has(match[1])) {
+        throw new Error(`Unsupported file type for ${safeMemberDocumentName(file?.name)}.`);
+    }
+    const buffer = Buffer.from(match[2], 'base64');
+    if (!buffer.length || buffer.length > MAX_MEMBER_DOCUMENT_FILE_BYTES) {
+        throw new Error(`${safeMemberDocumentName(file?.name)} must be between 1 byte and 5 MB.`);
+    }
+    return { buffer, contentType: match[1], name: safeMemberDocumentName(file.name) };
+}
+
+app.get('/api/member-documents', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('member_documents')
+            .select('*')
+            .order('submitted_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load member documents:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load member documents.' });
+        }
+
+        const documents = await Promise.all((data || []).map(async row => {
+            const paths = parseMemberDocumentPaths(row.file_url);
+            const files = {};
+            await Promise.all(MEMBER_DOCUMENT_KEYS.map(async key => {
+                const item = paths[key];
+                if (!item || typeof item.path !== 'string') return;
+                const { data: signed, error: signError } = await supabase.storage
+                    .from(MEMBER_DOCUMENTS_BUCKET)
+                    .createSignedUrl(item.path, 10 * 60, { download: item.name || true });
+                if (signError) throw signError;
+                files[key] = { name: item.name || MEMBER_DOCUMENT_LABELS[key], data: signed.signedUrl };
+            }));
+            const required = parseRequiredMemberDocuments(row.required_documents);
+            return {
+                id: row.id,
+                memberName: row.member_name || '',
+                memberEmail: row.email_or_id || '',
+                submittedAt: row.submitted_at || '',
+                requiredDocuments: required.documents,
+                notes: required.notes,
+                files
+            };
+        }));
+        return res.json({ success: true, data: documents });
+    } catch (error) {
+        console.error('[Supabase] Member documents fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load member documents.' });
+    }
+});
+
+app.post('/api/member-documents', async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const { member_name, email_or_id, notes, files } = req.body || {};
+    if (!String(member_name || '').trim() || !String(email_or_id || '').trim() || !files || typeof files !== 'object') {
+        return res.status(400).json({ success: false, message: 'Member name, email or ID, and document files are required.' });
+    }
+    const parsedFiles = {};
+    let totalBytes = 0;
+    try {
+        for (const key of MEMBER_DOCUMENT_KEYS) {
+            if (!files[key]) {
+                if (key !== 'otherDocs') throw new Error(`The ${MEMBER_DOCUMENT_LABELS[key]} file is required.`);
+                continue;
+            }
+            parsedFiles[key] = parseMemberDocumentDataUrl(files[key]);
+            totalBytes += parsedFiles[key].buffer.length;
+        }
+        if (totalBytes > MAX_MEMBER_DOCUMENT_TOTAL_BYTES) {
+            return res.status(413).json({ success: false, message: 'All uploaded files together must be 10 MB or smaller.' });
+        }
+    } catch (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+
+    const uploadedPaths = [];
+    const bundleId = crypto.randomUUID();
+    try {
+        const paths = {};
+        for (const [key, file] of Object.entries(parsedFiles)) {
+            const storagePath = `${bundleId}/${key}-${file.name}`;
+            const { error } = await supabase.storage
+                .from(MEMBER_DOCUMENTS_BUCKET)
+                .upload(storagePath, file.buffer, { contentType: file.contentType, upsert: false });
+            if (error) throw error;
+            uploadedPaths.push(storagePath);
+            paths[key] = { path: storagePath, name: file.name };
+        }
+
+        const requiredDocuments = JSON.stringify({
+            documents: Object.keys(parsedFiles).map(key => MEMBER_DOCUMENT_LABELS[key]),
+            notes: String(notes || '').trim()
+        });
+        const { data, error } = await supabase
+            .from('member_documents')
+            .insert([{
+                member_name: String(member_name).trim(),
+                email_or_id: String(email_or_id).trim(),
+                required_documents: requiredDocuments,
+                file_url: JSON.stringify(paths)
+            }])
+            .select('id,member_name,email_or_id,required_documents,submitted_at')
+            .single();
+        if (error) throw error;
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        if (uploadedPaths.length) {
+            const { error: cleanupError } = await supabase.storage.from(MEMBER_DOCUMENTS_BUCKET).remove(uploadedPaths);
+            if (cleanupError) console.error('[Supabase] Failed to clean up an incomplete member-document upload:', cleanupError.message);
+        }
+        console.error('[Supabase] Failed to save member documents:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save member documents.' });
+    }
+});
+
+app.delete('/api/member-documents/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data: row, error: fetchError } = await supabase
+            .from('member_documents')
+            .select('id,file_url')
+            .eq('id', req.params.id)
+            .maybeSingle();
+        if (fetchError) throw fetchError;
+        if (!row) return res.status(404).json({ success: false, message: 'Member document submission not found.' });
+
+        const { error: deleteError } = await supabase
+            .from('member_documents')
+            .delete()
+            .eq('id', req.params.id);
+        if (deleteError) throw deleteError;
+
+        const paths = Object.values(parseMemberDocumentPaths(row.file_url))
+            .map(item => item && item.path)
+            .filter(value => typeof value === 'string');
+        if (paths.length) {
+            const { error: storageError } = await supabase.storage.from(MEMBER_DOCUMENTS_BUCKET).remove(paths);
+            if (storageError) {
+                console.error('[Supabase] Submission was deleted but file cleanup failed:', storageError.message);
+                return res.status(500).json({ success: false, message: 'Submission deleted, but its stored files could not be removed.' });
+            }
+        }
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Member document deletion error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete member documents.' });
     }
 });

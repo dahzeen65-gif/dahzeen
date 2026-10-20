@@ -16,7 +16,6 @@ STORAGE_KEYS.sops = 'mrt_portal_sops';
 STORAGE_KEYS.minutes = 'mrt_portal_minutes';
 STORAGE_KEYS.contracts = 'mrt_portal_contracts';
 STORAGE_KEYS.templates = 'mrt_portal_templates';
-STORAGE_KEYS.memberDocuments = 'mrt_portal_member_documents';
 
 // ====== INITIAL DEMO DATA FOR FIRST-TIME RUNS ======
 const defaultSales = [
@@ -322,7 +321,8 @@ async function refreshMinutesFromDatabase() {
 }
 const defaultContracts = [];
 const defaultTemplates = [];
-const defaultMemberDocuments = [];
+let liveMemberDocuments = null;
+let memberDocumentsFetch = null;
 
 const LOGIN_PASSWORD = "MrTEam001";
 const COOKIE_CONSENT_KEY = 'mrt_cookie_consent';
@@ -1302,7 +1302,16 @@ function renderMemberDocumentsTable() {
     const tableBody = document.querySelector("#memberDocumentsTable tbody");
     if (!tableBody) return;
 
-    const documents = getPortalData(STORAGE_KEYS.memberDocuments, defaultMemberDocuments);
+    if (!liveMemberDocuments) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Loading member documents…</td></tr>`;
+        if (!memberDocumentsFetch) {
+            memberDocumentsFetch = refreshMemberDocumentsFromDatabase().finally(() => {
+                memberDocumentsFetch = null;
+            });
+        }
+        return;
+    }
+    const documents = liveMemberDocuments;
     if (!documents.length) {
         tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999; padding: 20px;">No member documents have been submitted yet.</td></tr>`;
         return;
@@ -1310,29 +1319,49 @@ function renderMemberDocumentsTable() {
 
     tableBody.innerHTML = documents.map(doc => `
         <tr>
-            <td>${doc.memberName}</td>
-            <td>${doc.memberEmail}</td>
-            <td>${doc.submittedAt}</td>
+            <td>${escapeGalleryText(doc.memberName)}</td>
+            <td>${escapeGalleryText(doc.memberEmail)}</td>
+            <td>${escapeGalleryText(doc.submittedAt)}</td>
             <td>
                 <div style="font-size:13px; line-height:1.4;">
-                    <strong>ID Card</strong><br>
-                    <strong>CV</strong><br>
-                    <strong>Certificates</strong><br>
-                    <strong>Passport Photo</strong><br>
-                    ${doc.files.otherDocs ? '<strong>Other Docs</strong>' : ''}
+                    ${escapeGalleryText(doc.requiredDocuments || '')}
                 </div>
             </td>
             <td>
-                <button class="action-btn-purple" onclick="showMemberDocumentDetails(${doc.id})">View Details</button>
-                <button class="delete-row-btn" onclick="deleteMemberDocumentEntry(${doc.id})" title="Delete Entry"><i class="fas fa-trash-alt"></i></button>
+                <button class="action-btn-purple" data-member-view="${escapeGalleryText(doc.id)}">View Details</button>
+                <button class="delete-row-btn" data-member-delete="${escapeGalleryText(doc.id)}" title="Delete Entry"><i class="fas fa-trash-alt"></i></button>
             </td>
         </tr>
     `).join('');
+
+    tableBody.querySelectorAll('[data-member-view]').forEach(button => {
+        button.addEventListener('click', () => showMemberDocumentDetails(button.dataset.memberView));
+    });
+    tableBody.querySelectorAll('[data-member-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteMemberDocumentEntry(button.dataset.memberDelete));
+    });
+}
+
+async function refreshMemberDocumentsFromDatabase() {
+    const tableBody = document.querySelector("#memberDocumentsTable tbody");
+    try {
+        const response = await fetch('/api/member-documents', { credentials: 'include' });
+        const result = await response.json();
+        if (!response.ok || !result.success || !Array.isArray(result.data)) {
+            throw new Error(result.message || 'Unable to load member documents.');
+        }
+        liveMemberDocuments = result.data;
+        renderMemberDocumentsTable();
+    } catch (error) {
+        console.error('Could not load member documents:', error);
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#b00020; padding:20px;">${escapeGalleryText(error.message || 'Unable to load member documents.')}</td></tr>`;
+        }
+    }
 }
 
 function showMemberDocumentDetails(id) {
-    const documents = getPortalData(STORAGE_KEYS.memberDocuments, defaultMemberDocuments);
-    const doc = documents.find(item => item.id === id);
+    const doc = (liveMemberDocuments || []).find(item => String(item.id) === String(id));
     if (!doc) return;
 
     const details = document.getElementById('memberDetailsContent');
@@ -1340,17 +1369,13 @@ function showMemberDocumentDetails(id) {
 
     details.innerHTML = `
         <div style="display:grid; gap:16px;">
-            <div><strong>Member Name:</strong> ${doc.memberName}</div>
-            <div><strong>Email / ID:</strong> ${doc.memberEmail}</div>
-            <div><strong>Submitted:</strong> ${doc.submittedAt}</div>
-            <div><strong>Notes:</strong> ${doc.notes || 'None'}</div>
+            <div><strong>Member Name:</strong> ${escapeGalleryText(doc.memberName)}</div>
+            <div><strong>Email / ID:</strong> ${escapeGalleryText(doc.memberEmail)}</div>
+            <div><strong>Submitted:</strong> ${escapeGalleryText(doc.submittedAt)}</div>
+            <div><strong>Notes:</strong> ${escapeGalleryText(doc.notes || 'None')}</div>
             <div><strong>Download Files:</strong></div>
             <div style="display:grid; gap:10px;">
-                <a href="${doc.files.idCard.data}" download="${doc.files.idCard.name}" class="download-link"><i class="fas fa-id-card"></i> ID Card</a>
-                <a href="${doc.files.cv.data}" download="${doc.files.cv.name}" class="download-link"><i class="fas fa-file-alt"></i> CV</a>
-                <a href="${doc.files.certificates.data}" download="${doc.files.certificates.name}" class="download-link"><i class="fas fa-certificate"></i> Certificates</a>
-                <a href="${doc.files.passportPhoto.data}" download="${doc.files.passportPhoto.name}" class="download-link"><i class="fas fa-camera"></i> Passport Photo</a>
-                ${doc.files.otherDocs ? `<a href="${doc.files.otherDocs.data}" download="${doc.files.otherDocs.name}" class="download-link"><i class="fas fa-file"></i> Other Documents</a>` : ''}
+                ${Object.entries(doc.files || {}).map(([key, file]) => `<a href="${escapeGalleryText(file.data)}" download="${escapeGalleryText(file.name)}" class="download-link"><i class="fas fa-file"></i> ${escapeGalleryText(file.name || key)}</a>`).join('')}
             </div>
         </div>
     `;
@@ -1362,12 +1387,22 @@ function closeMemberDetails() {
     if (section) section.style.display = 'none';
 }
 
-function deleteMemberDocumentEntry(id) {
+async function deleteMemberDocumentEntry(id) {
     if (!confirm('Permanently delete this member document bundle?')) return;
-    const documents = getPortalData(STORAGE_KEYS.memberDocuments, defaultMemberDocuments).filter(item => item.id !== id);
-    localStorage.setItem(STORAGE_KEYS.memberDocuments, JSON.stringify(documents));
-    renderMemberDocumentsTable();
-    closeMemberDetails();
+    try {
+        const response = await fetch(`/api/member-documents/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Unable to delete member documents.');
+        liveMemberDocuments = (liveMemberDocuments || []).filter(item => String(item.id) !== String(id));
+        renderMemberDocumentsTable();
+        closeMemberDetails();
+    } catch (error) {
+        console.error('Could not delete member documents:', error);
+        alert(error.message || 'Unable to delete member documents.');
+    }
 }
 
 function openEditReportForm(id) {

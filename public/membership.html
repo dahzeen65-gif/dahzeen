@@ -474,14 +474,6 @@
                 accounts.unshift(newMemberAccount);
                 localStorage.setItem('mrt_member_accounts', JSON.stringify(accounts));
 
-                const approvedMembers = JSON.parse(localStorage.getItem('mrt_public_applications') || '[]');
-                const memberIndex = approvedMembers.findIndex(app => app.accountNumber === currentActiveApplication.accountNumber);
-                if (memberIndex !== -1) {
-                    approvedMembers[memberIndex].createdAccount = true;
-                    approvedMembers[memberIndex].email = currentActiveApplication.email;
-                    localStorage.setItem('mrt_public_applications', JSON.stringify(approvedMembers));
-                }
-
                 messageBox.style.color = '#1e7e34';
                 messageBox.innerText = 'Email verified and account created successfully. You can now upload your documents.';
 
@@ -505,9 +497,34 @@
 
         document.getElementById('paymentLoadingState').style.display = 'block';
 
-        setTimeout(() => {
+        setTimeout(async () => {
             const randomReceipt = 'SGK' + Math.floor(100000 + Math.random() * 900000);
             const paymentAmount = 1000.00;
+
+            try {
+                const response = await fetch('/api/applicants', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        first_name: currentActiveApplication.firstName,
+                        last_name: currentActiveApplication.lastName,
+                        phone: currentActiveApplication.phone,
+                        email: currentActiveApplication.email,
+                        primary_pillar: currentActiveApplication.pillar,
+                        mpesa_reference: randomReceipt,
+                        allocated_account_no: currentActiveApplication.accountNumber
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Unable to save the membership application.');
+                }
+            } catch (error) {
+                console.error('Could not save membership application:', error);
+                document.getElementById('paymentLoadingState').style.display = 'none';
+                alert(error.message || 'Unable to save your membership application. Please try again.');
+                return;
+            }
 
             let currentBankBalance = parseFloat(localStorage.getItem('mrt_bank_vault_balance')) || 25400.00;
             let newBankBalance = currentBankBalance + paymentAmount;
@@ -526,12 +543,9 @@
             transactionLedger.unshift(newTransaction);
             localStorage.setItem('mrt_general_ledger', JSON.stringify(transactionLedger));
 
-            const approvedMembers = JSON.parse(localStorage.getItem('mrt_public_applications')) || [];
             currentActiveApplication.paymentStatus = 'Paid';
             currentActiveApplication.status = 'Awaiting Verification';
             currentActiveApplication.mpesaRef = randomReceipt;
-            approvedMembers.push(currentActiveApplication);
-            localStorage.setItem('mrt_public_applications', JSON.stringify(approvedMembers));
 
             document.getElementById('paymentLoadingState').style.display = 'none';
             closePaymentModal();
@@ -565,9 +579,6 @@
 
 </body>
 </html>
-
-
-
 
 
 

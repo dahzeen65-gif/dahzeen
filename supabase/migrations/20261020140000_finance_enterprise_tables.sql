@@ -7,19 +7,9 @@ create table if not exists public.finance_sales (
     created_at timestamptz not null default now()
 );
 
-create table if not exists public.finance_accounts (
-    account_key text primary key,
-    balance numeric(14, 2) not null check (balance >= 0),
-    updated_at timestamptz not null default now()
-);
-
-insert into public.finance_accounts (account_key, balance)
-values ('bank', 145200)
-on conflict (account_key) do nothing;
-
 alter table public.finance_sales enable row level security;
-alter table public.finance_accounts enable row level security;
+alter table public.treasury enable row level security;
 
 grant all on public.finance_sales to service_role;
-grant all on public.finance_accounts to service_role;
+grant all on public.treasury to service_role;
 grant usage, select on sequence public.finance_sales_id_seq to service_role;

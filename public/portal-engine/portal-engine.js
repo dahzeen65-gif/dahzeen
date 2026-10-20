@@ -23,6 +23,7 @@ let liveFinanceSales = null;
 let financeSalesError = '';
 let financeSalesRequest = null;
 let liveFinanceBankBalance = null;
+let financeBankLoaded = false;
 let financeBankError = '';
 let financeBankRequest = null;
 
@@ -99,7 +100,8 @@ async function refreshFinanceBankBalance() {
     financeBankRequest = (async () => {
         try {
             const result = await requestFinanceApi('/api/finance/accounts/bank');
-            liveFinanceBankBalance = Number(result.data.balance);
+            liveFinanceBankBalance = result.data.balance === null ? null : Number(result.data.balance);
+            financeBankLoaded = true;
             financeBankError = '';
             renderVaultAccounts();
         } catch (error) {
@@ -670,11 +672,17 @@ function renderVaultAccounts() {
     const bankAccountValue = document.getElementById("bankAccountValue");
     const bankInput = document.getElementById("bankInput");
 
-    if (liveFinanceBankBalance === null) {
+    if (!financeBankLoaded) {
         if (bankValue) bankValue.innerText = financeBankError || 'Loading…';
         if (bankAccountValue) bankAccountValue.innerText = financeBankError || 'Loading…';
-        if (bankInput && accounts.bank) bankInput.value = accounts.bank;
         refreshFinanceBankBalance();
+        renderVaultUserList();
+        return;
+    }
+    if (liveFinanceBankBalance === null) {
+        if (bankValue) bankValue.innerText = 'Not set';
+        if (bankAccountValue) bankAccountValue.innerText = 'Not set';
+        if (bankInput) bankInput.value = '';
         renderVaultUserList();
         return;
     }
@@ -743,6 +751,7 @@ async function saveVaultAccount(type) {
                 body: JSON.stringify({ balance: value })
             });
             liveFinanceBankBalance = Number(result.data.balance);
+            financeBankLoaded = true;
             financeBankError = '';
             renderVaultAccounts();
             lockVault();

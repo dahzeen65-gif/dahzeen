@@ -1229,18 +1229,21 @@ app.get('/api/finance/accounts/:accountKey', requireAuth, requireRole('Super Adm
     }
     try {
         const { data, error } = await supabase
-            .from('finance_accounts')
-            .select('account_key,balance,updated_at')
-            .eq('account_key', req.params.accountKey)
+            .from('treasury')
+            .select('id,balance,updated_at')
+            .eq('id', 1)
             .maybeSingle();
         if (error) {
             console.error('[Supabase] Failed to load finance account:', error.message);
             return res.status(500).json({ success: false, message: 'Unable to load account balance.' });
         }
-        if (!data) return res.status(404).json({ success: false, message: 'Account not found.' });
         return res.json({
             success: true,
-            data: { accountKey: data.account_key, balance: Number(data.balance), updatedAt: data.updated_at }
+            data: {
+                accountKey: req.params.accountKey,
+                balance: data ? Number(data.balance) : null,
+                updatedAt: data?.updated_at || null
+            }
         });
     } catch (error) {
         console.error('[Supabase] Finance account fetch error:', error.message);
@@ -1259,9 +1262,9 @@ app.put('/api/finance/accounts/:accountKey', requireAuth, requireRole('Super Adm
     }
     try {
         const { data, error } = await supabase
-            .from('finance_accounts')
-            .upsert({ account_key: req.params.accountKey, balance }, { onConflict: 'account_key' })
-            .select('account_key,balance,updated_at')
+            .from('treasury')
+            .upsert({ id: 1, balance }, { onConflict: 'id' })
+            .select('id,balance,updated_at')
             .single();
         if (error) {
             console.error('[Supabase] Failed to save finance account:', error.message);
@@ -1269,7 +1272,7 @@ app.put('/api/finance/accounts/:accountKey', requireAuth, requireRole('Super Adm
         }
         return res.json({
             success: true,
-            data: { accountKey: data.account_key, balance: Number(data.balance), updatedAt: data.updated_at }
+            data: { accountKey: req.params.accountKey, balance: Number(data.balance), updatedAt: data.updated_at }
         });
     } catch (error) {
         console.error('[Supabase] Finance account save error:', error.message);

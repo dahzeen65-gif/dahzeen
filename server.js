@@ -1134,6 +1134,149 @@ app.delete('/api/member-documents/:id', requireAuth, requireRole('Super Admin'),
 });
 
 // --- EXPENDITURES & FINANCE ROUTES ---
+app.get('/api/finance/sales', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('finance_sales')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load finance sales:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load sales.' });
+        }
+        return res.json({
+            success: true,
+            data: (data || []).map(row => ({
+                id: row.id,
+                item: row.item,
+                qty: row.quantity,
+                cash: Number(row.amount),
+                status: row.status,
+                createdAt: row.created_at
+            }))
+        });
+    } catch (error) {
+        console.error('[Supabase] Finance sales fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load sales.' });
+    }
+});
+
+app.post('/api/finance/sales', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const { item, quantity, amount } = req.body || {};
+    const numericAmount = Number(amount);
+    if (!String(item || '').trim() || !String(quantity || '').trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+        return res.status(400).json({ success: false, message: 'An item, quantity, and positive revenue amount are required.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('finance_sales')
+            .insert([{
+                item: String(item).trim(),
+                quantity: String(quantity).trim(),
+                amount: numericAmount,
+                status: 'Completed'
+            }])
+            .select('*')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to save finance sale:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save sale.' });
+        }
+        return res.status(201).json({
+            success: true,
+            data: {
+                id: data.id,
+                item: data.item,
+                qty: data.quantity,
+                cash: Number(data.amount),
+                status: data.status,
+                createdAt: data.created_at
+            }
+        });
+    } catch (error) {
+        console.error('[Supabase] Finance sale save error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save sale.' });
+    }
+});
+
+app.delete('/api/finance/sales/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('finance_sales')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to delete finance sale:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete sale.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Sale not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Finance sale delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete sale.' });
+    }
+});
+
+app.get('/api/finance/accounts/:accountKey', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    if (req.params.accountKey !== 'bank') {
+        return res.status(404).json({ success: false, message: 'Account not found.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('finance_accounts')
+            .select('account_key,balance,updated_at')
+            .eq('account_key', req.params.accountKey)
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to load finance account:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load account balance.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Account not found.' });
+        return res.json({
+            success: true,
+            data: { accountKey: data.account_key, balance: Number(data.balance), updatedAt: data.updated_at }
+        });
+    } catch (error) {
+        console.error('[Supabase] Finance account fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load account balance.' });
+    }
+});
+
+app.put('/api/finance/accounts/:accountKey', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    if (req.params.accountKey !== 'bank') {
+        return res.status(404).json({ success: false, message: 'Account not found.' });
+    }
+    const balance = Number(req.body?.balance);
+    if (!Number.isFinite(balance) || balance < 0) {
+        return res.status(400).json({ success: false, message: 'Enter a valid non-negative balance.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('finance_accounts')
+            .upsert({ account_key: req.params.accountKey, balance }, { onConflict: 'account_key' })
+            .select('account_key,balance,updated_at')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to save finance account:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save account balance.' });
+        }
+        return res.json({
+            success: true,
+            data: { accountKey: data.account_key, balance: Number(data.balance), updatedAt: data.updated_at }
+        });
+    } catch (error) {
+        console.error('[Supabase] Finance account save error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save account balance.' });
+    }
+});
+
 app.get('/api/expenditures', requireAuth, requireRole('Super Admin'), async (req, res) => {
     if (!supabase.isConfigured) return supabaseUnavailable(res);
     try {

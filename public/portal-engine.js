@@ -1,7 +1,5 @@
 // ====== STORAGE KEYS FOR LOCAL BROWSER SYSTEM ======
 const STORAGE_KEYS = {
-    sales: 'mrt_portal_sales',
-    expenses: 'mrt_portal_expenses',
     events: 'mrt_portal_events',
     gallery: 'mrt_portal_gallery',
     accounts: 'mrt_portal_accounts',
@@ -18,19 +16,15 @@ STORAGE_KEYS.contracts = 'mrt_portal_contracts';
 STORAGE_KEYS.templates = 'mrt_portal_templates';
 
 // ====== INITIAL DEMO DATA FOR FIRST-TIME RUNS ======
-const defaultSales = [
-    { id: 1, item: "MRT Branded T-Shirts", qty: "12", cash: "14400", status: "Completed" },
-    { id: 2, item: "Community First-Aid Training", qty: "1 Corp", cash: "25000", status: "Completed" }
-];
-
-const defaultExpenses = [
-    { id: 1, desc: "Purchase of 50 Tree Seedlings", cat: "Environment", cash: "7500" },
-    { id: 2, desc: "Fuel for Emergency Response Vehicle", cat: "Disaster Mgt", cash: "4200" }
-];
-
 let liveFinanceExpenses = null;
 let financeExpensesError = '';
 let financeExpensesRequest = null;
+let liveFinanceSales = null;
+let financeSalesError = '';
+let financeSalesRequest = null;
+let liveFinanceBankBalance = null;
+let financeBankError = '';
+let financeBankRequest = null;
 
 function getFinanceExpenses() {
     return liveFinanceExpenses || [];
@@ -56,6 +50,54 @@ async function refreshFinanceExpenses() {
         }
     })();
     return financeExpensesRequest;
+}
+
+function getFinanceSales() {
+    return liveFinanceSales || [];
+}
+
+async function refreshFinanceSales() {
+    if (financeSalesRequest) return financeSalesRequest;
+    const tableBody = document.querySelector("#salesTable tbody");
+    financeSalesRequest = (async () => {
+        try {
+            const result = await requestPortalApi('/api/finance/sales');
+            liveFinanceSales = result.data;
+            financeSalesError = '';
+            renderDashboard();
+        } catch (error) {
+            financeSalesError = error.message || 'Unable to load sales.';
+            console.error('Could not load enterprise sales from Supabase:', error);
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#b00020; padding:20px;">${escapeGalleryText(financeSalesError)}</td></tr>`;
+            }
+        } finally {
+            financeSalesRequest = null;
+        }
+    })();
+    return financeSalesRequest;
+}
+
+async function refreshFinanceBankBalance() {
+    if (financeBankRequest) return financeBankRequest;
+    financeBankRequest = (async () => {
+        try {
+            const result = await requestPortalApi('/api/finance/accounts/bank');
+            liveFinanceBankBalance = Number(result.data.balance);
+            financeBankError = '';
+            renderVaultAccounts();
+        } catch (error) {
+            financeBankError = error.message || 'Unable to load bank balance.';
+            console.error('Could not load bank balance from Supabase:', error);
+            const bankValue = document.getElementById('bankValue');
+            const bankAccountValue = document.getElementById('bankAccountValue');
+            if (bankValue) bankValue.innerText = financeBankError;
+            if (bankAccountValue) bankAccountValue.innerText = financeBankError;
+        } finally {
+            financeBankRequest = null;
+        }
+    })();
+    return financeBankRequest;
 }
 
 const defaultEvents = [
@@ -437,22 +479,31 @@ function previewReportPhoto(event) {
 
 // ====== INITIALIZE WORKSPACE RENDERING ======
 function renderDashboard() {
-    const sales = getPortalData(STORAGE_KEYS.sales, defaultSales);
+    const sales = getFinanceSales();
     const expenses = getFinanceExpenses();
     const galleryItems = getGalleryItems();
     
     // 1. Render Sales Table
     const salesBody = document.querySelector("#salesTable tbody");
     if (salesBody) {
-        salesBody.innerHTML = sales.map(s => `
+        if (liveFinanceSales === null) {
+            salesBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Loading sales…</td></tr>`;
+            refreshFinanceSales();
+        } else if (financeSalesError) {
+            salesBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#b00020; padding:20px;">${escapeGalleryText(financeSalesError)}</td></tr>`;
+        } else if (sales.length === 0) {
+            salesBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999; padding:20px;">No sales recorded.</td></tr>`;
+        } else {
+            salesBody.innerHTML = sales.map(s => `
             <tr>
-                <td>${s.item}</td>
-                <td>${s.qty}</td>
-                <td>KES ${parseInt(s.cash).toLocaleString()}</td>
-                <td><span class="badge public">${s.status}</span></td>
+                <td>${escapeGalleryText(s.item)}</td>
+                <td>${escapeGalleryText(s.qty)}</td>
+                <td>KES ${Number(s.cash).toLocaleString()}</td>
+                <td><span class="badge public">${escapeGalleryText(s.status)}</span></td>
                 <td><button class="delete-row-btn" onclick="deleteRecord('sales', ${s.id})"><i class="fas fa-trash-alt"></i></button></td>
             </tr>
-        `).join('');
+            `).join('');
+        }
     }
 
     // 2. Render Expenses Table
@@ -579,9 +630,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
             try {
             if (type === 'sale') {
-                let sales = getPortalData(STORAGE_KEYS.sales, defaultSales);
-                sales.push({ id: timestampId, item: f1, qty: f2, cash: f3, status: "Completed" });
-                localStorage.setItem(STORAGE_KEYS.sales, JSON.stringify(sales));
+                const amount = Number(f3);
+                if (!f1.trim() || !f2.trim() || !Number.isFinite(amount) || amount <= 0) {
+                    alert('Enter an item, quantity, and positive revenue amount.');
+                    return;
+                }
+                const result = await requestPortalApi('/api/finance/sales', {
+                    method: 'POST',
+                    body: JSON.stringify({ item: f1.trim(), quantity: f2.trim(), amount })
+                });
+                liveFinanceSales = [result.data, ...getFinanceSales()];
+                financeSalesError = '';
             } else if (type === 'expense') {
                 const amount = Number(f3);
                 if (!f1.trim() || !Number.isFinite(amount) || amount <= 0) {
@@ -799,6 +858,17 @@ function startHeroSlideshow() {
 // ====== RECORD DELETION CORE ======
 async function deleteRecord(storageType, id) {
     if (confirm("Are you sure you want to permanently clear this record from the MRT system registry?")) {
+        if (storageType === 'sales') {
+            try {
+                await requestPortalApi(`/api/finance/sales/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                liveFinanceSales = getFinanceSales().filter(item => String(item.id) !== String(id));
+                renderDashboard();
+            } catch (error) {
+                console.error('Could not delete sale:', error);
+                alert(error.message || 'Unable to delete sale.');
+            }
+            return;
+        }
         if (storageType === 'expenses') {
             try {
                 await requestPortalApi(`/api/expenditures/${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -904,11 +974,19 @@ function renderVaultAccounts() {
     const bankAccountValue = document.getElementById("bankAccountValue");
     const bankInput = document.getElementById("bankInput");
 
-    const bankText = `KES ${parseInt(accounts.bank).toLocaleString()}`;
+    if (liveFinanceBankBalance === null) {
+        if (bankValue) bankValue.innerText = financeBankError || 'Loading…';
+        if (bankAccountValue) bankAccountValue.innerText = financeBankError || 'Loading…';
+        if (bankInput && accounts.bank) bankInput.value = accounts.bank;
+        refreshFinanceBankBalance();
+        renderVaultUserList();
+        return;
+    }
+    const bankText = `KES ${liveFinanceBankBalance.toLocaleString()}`;
 
     if (bankValue) bankValue.innerText = bankText;
     if (bankAccountValue) bankAccountValue.innerText = bankText;
-    if (bankInput) bankInput.value = accounts.bank;
+    if (bankInput) bankInput.value = String(liveFinanceBankBalance);
     renderVaultUserList();
 }
 
@@ -952,14 +1030,34 @@ function removeVaultUser(index) {
     renderVaultUserList();
 }
 
-function saveVaultAccount(type) {
+async function saveVaultAccount(type) {
     const accounts = getPortalData(STORAGE_KEYS.accounts, defaultAccounts);
     const input = document.getElementById(`${type}Input`);
     if (!input) return;
-    const value = input.value.replace(/[^0-9]/g, '');
-    if (!value) return;
+    const value = Number(input.value.replace(/,/g, '').trim());
+    if (!Number.isFinite(value) || value < 0) {
+        alert('Enter a valid non-negative bank balance.');
+        return;
+    }
 
-    accounts[type] = value;
+    if (type === 'bank') {
+        try {
+            const result = await requestPortalApi('/api/finance/accounts/bank', {
+                method: 'PUT',
+                body: JSON.stringify({ balance: value })
+            });
+            liveFinanceBankBalance = Number(result.data.balance);
+            financeBankError = '';
+            renderVaultAccounts();
+            lockVault();
+        } catch (error) {
+            console.error('Could not update bank balance:', error);
+            alert(error.message || 'Unable to update bank balance.');
+        }
+        return;
+    }
+
+    accounts[type] = String(value);
     localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(accounts));
     renderVaultAccounts();
     lockVault();

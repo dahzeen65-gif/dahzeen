@@ -28,6 +28,36 @@ const defaultExpenses = [
     { id: 2, desc: "Fuel for Emergency Response Vehicle", cat: "Disaster Mgt", cash: "4200" }
 ];
 
+let liveFinanceExpenses = null;
+let financeExpensesError = '';
+let financeExpensesRequest = null;
+
+function getFinanceExpenses() {
+    return liveFinanceExpenses || [];
+}
+
+async function refreshFinanceExpenses() {
+    if (financeExpensesRequest) return financeExpensesRequest;
+    const tableBody = document.querySelector("#expensesTable tbody");
+    financeExpensesRequest = (async () => {
+        try {
+            const result = await requestPortalApi('/api/expenditures');
+            liveFinanceExpenses = result.data;
+            financeExpensesError = '';
+            renderDashboard();
+        } catch (error) {
+            financeExpensesError = error.message || 'Unable to load expenditures.';
+            console.error('Could not load expenditures from Supabase:', error);
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#b00020; padding:20px;">${escapeGalleryText(financeExpensesError)}</td></tr>`;
+            }
+        } finally {
+            financeExpensesRequest = null;
+        }
+    })();
+    return financeExpensesRequest;
+}
+
 const defaultEvents = [
     { id: 1, day: 6, title: "Emergency Preparedness Drill", type: "event-orange" },
     { id: 2, day: 13, title: "World Environment Tree Drive", type: "event-green" },
@@ -408,7 +438,7 @@ function previewReportPhoto(event) {
 // ====== INITIALIZE WORKSPACE RENDERING ======
 function renderDashboard() {
     const sales = getPortalData(STORAGE_KEYS.sales, defaultSales);
-    const expenses = getPortalData(STORAGE_KEYS.expenses, defaultExpenses);
+    const expenses = getFinanceExpenses();
     const galleryItems = getGalleryItems();
     
     // 1. Render Sales Table
@@ -428,14 +458,23 @@ function renderDashboard() {
     // 2. Render Expenses Table
     const expensesBody = document.querySelector("#expensesTable tbody");
     if (expensesBody) {
-        expensesBody.innerHTML = expenses.map(e => `
+        if (liveFinanceExpenses === null) {
+            expensesBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888; padding:20px;">Loading expenditures…</td></tr>`;
+            refreshFinanceExpenses();
+        } else if (financeExpensesError) {
+            expensesBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#b00020; padding:20px;">${escapeGalleryText(financeExpensesError)}</td></tr>`;
+        } else if (expenses.length === 0) {
+            expensesBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#999; padding:20px;">No expenditures recorded.</td></tr>`;
+        } else {
+            expensesBody.innerHTML = expenses.map(e => `
             <tr>
-                <td>${e.desc}</td>
-                <td>${e.cat}</td>
-                <td class="text-red">- KES ${parseInt(e.cash).toLocaleString()}</td>
+                <td>${escapeGalleryText(e.desc)}</td>
+                <td>${escapeGalleryText(e.cat)}</td>
+                <td class="text-red">- KES ${Number(e.cash).toLocaleString()}</td>
                 <td><button class="delete-row-btn" onclick="deleteRecord('expenses', ${e.id})"><i class="fas fa-trash-alt"></i></button></td>
             </tr>
-        `).join('');
+            `).join('');
+        }
     }
 
     // 2b. Update expenditure chart based on expenses data
@@ -529,7 +568,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // 1. Bind form submissions safely
     const form = document.getElementById("portalEntryForm");
     if (form) {
-        form.addEventListener("submit", function(e) {
+        form.addEventListener("submit", async function(e) {
             e.preventDefault();
             const type = document.getElementById("entryType").value;
             const f1 = document.getElementById("field1").value;
@@ -538,14 +577,23 @@ document.addEventListener("DOMContentLoaded", function() {
             
             const timestampId = Date.now();
 
+            try {
             if (type === 'sale') {
                 let sales = getPortalData(STORAGE_KEYS.sales, defaultSales);
                 sales.push({ id: timestampId, item: f1, qty: f2, cash: f3, status: "Completed" });
                 localStorage.setItem(STORAGE_KEYS.sales, JSON.stringify(sales));
             } else if (type === 'expense') {
-                let expenses = getPortalData(STORAGE_KEYS.expenses, defaultExpenses);
-                expenses.push({ id: timestampId, desc: f1, cat: f2 || "General", cash: f3 });
-                localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
+                const amount = Number(f3);
+                if (!f1.trim() || !Number.isFinite(amount) || amount <= 0) {
+                    alert('Enter an expense description and a positive amount.');
+                    return;
+                }
+                const result = await requestPortalApi('/api/expenditures', {
+                    method: 'POST',
+                    body: JSON.stringify({ description: f1.trim(), category: f2.trim() || 'General', amount })
+                });
+                liveFinanceExpenses = [result.data, ...getFinanceExpenses()];
+                financeExpensesError = '';
             } else if (type === 'event') {
                 let events = getPortalData(STORAGE_KEYS.events, defaultEvents);
                 events.push({ id: timestampId, day: parseInt(f3), title: f1, type: "event-purple" });
@@ -554,6 +602,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
             closeModal();
             renderDashboard();
+            } catch (error) {
+                console.error('Could not save finance entry:', error);
+                alert(error.message || 'Unable to save this finance entry.');
+            }
         });
     }
 
@@ -745,8 +797,19 @@ function startHeroSlideshow() {
 }
 
 // ====== RECORD DELETION CORE ======
-function deleteRecord(storageType, id) {
+async function deleteRecord(storageType, id) {
     if (confirm("Are you sure you want to permanently clear this record from the MRT system registry?")) {
+        if (storageType === 'expenses') {
+            try {
+                await requestPortalApi(`/api/expenditures/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                liveFinanceExpenses = getFinanceExpenses().filter(item => String(item.id) !== String(id));
+                renderDashboard();
+            } catch (error) {
+                console.error('Could not delete expenditure:', error);
+                alert(error.message || 'Unable to delete expenditure.');
+            }
+            return;
+        }
         let key = STORAGE_KEYS[storageType];
         let currentRecords = JSON.parse(localStorage.getItem(key));
         let filteredRecords = currentRecords.filter(item => item.id !== id);

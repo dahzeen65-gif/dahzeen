@@ -1132,3 +1132,89 @@ app.delete('/api/member-documents/:id', requireAuth, requireRole('Super Admin'),
         return res.status(500).json({ success: false, message: 'Unable to delete member documents.' });
     }
 });
+
+// --- EXPENDITURES & FINANCE ROUTES ---
+app.get('/api/expenditures', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('expenditures')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load expenditures:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load expenditures.' });
+        }
+        return res.json({
+            success: true,
+            data: (data || []).map(row => ({
+                id: row.id,
+                desc: row.description || '',
+                cat: row.category || 'General',
+                cash: Number(row.amount || 0),
+                createdAt: row.created_at || ''
+            }))
+        });
+    } catch (error) {
+        console.error('[Supabase] Expenditure fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load expenditures.' });
+    }
+});
+
+app.post('/api/expenditures', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const { description, category, amount } = req.body || {};
+    const numericAmount = Number(amount);
+    if (!String(description || '').trim() || !String(category || '').trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+        return res.status(400).json({ success: false, message: 'A description, category, and positive amount are required.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('expenditures')
+            .insert([{
+                description: String(description).trim(),
+                category: String(category).trim(),
+                amount: numericAmount
+            }])
+            .select('*')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to save expenditure:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save expenditure.' });
+        }
+        return res.status(201).json({
+            success: true,
+            data: {
+                id: data.id,
+                desc: data.description || '',
+                cat: data.category || 'General',
+                cash: Number(data.amount || 0),
+                createdAt: data.created_at || ''
+            }
+        });
+    } catch (error) {
+        console.error('[Supabase] Expenditure save error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save expenditure.' });
+    }
+});
+
+app.delete('/api/expenditures/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    try {
+        const { data, error } = await supabase
+            .from('expenditures')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to delete expenditure:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete expenditure.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Expenditure not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Expenditure delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete expenditure.' });
+    }
+});

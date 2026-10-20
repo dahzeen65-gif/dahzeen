@@ -1494,3 +1494,12 @@ app.delete('/api/authorized-users/:id', requireAuth, requireRole('Super Admin'),
         return res.status(500).json({ success: false, message: 'Unable to remove authorized user.' });
     }
 });
+// --- EMAILJS CONFIG ROUTE ---
+app.get('/api/config/emailjs', (req, res) => {
+    res.json({
+        serviceId: process.env.EMAILJS_SERVICE_ID || '',
+        templateId: process.env.EMAILJS_TEMPLATE_ID || '',
+        contactTemplateId: process.env.EMAILJS_CONTACT_TEMPLATE_ID || '',
+        publicKey: process.env.EMAILJS_PUBLIC_KEY || ''
+    });
+});

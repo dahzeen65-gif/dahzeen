@@ -2904,3 +2904,32 @@ async function removeAuthorizedUser(id) {
     alert("Failed to remove user.");
   }
 }
+async function sendPasswordEmail(recipientEmail, recipientName, token) {
+  try {
+    // 1. Fetch EmailJS keys from Render backend
+    const configRes = await fetch('/api/config/emailjs');
+    const { serviceId, templateId, publicKey } = await configRes.json();
+
+    if (!serviceId || !templateId || !publicKey) {
+      alert("EmailJS keys are missing on Render. Please configure your environment variables.");
+      return;
+    }
+
+    // 2. Initialize EmailJS
+    emailjs.init(publicKey);
+
+    // 3. Send the email
+    const templateParams = {
+      to_email: recipientEmail,
+      to_name: recipientName,
+      reset_link: `https://mrt1-app.onrender.com/reset-password.html?token=${token}`,
+      temp_token: token
+    };
+
+    await emailjs.send(serviceId, templateId, templateParams);
+    alert(`Password setup email successfully sent to ${recipientEmail}!`);
+  } catch (err) {
+    console.error("Email send error:", err);
+    alert("Failed to send email: " + (err.text || err.message));
+  }
+}

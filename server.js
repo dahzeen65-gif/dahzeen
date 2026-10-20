@@ -296,15 +296,6 @@ app.get('/api/admin/applicants', requireAuth, async (req, res) => {
     return res.json(DB_APPLICANTS);
 });
 
-app.post('/api/documents/minutes/:id/delete-authorization', requireAuth, requireRole('Super Admin'), (req, res) => {
-    const clientPin = req.headers['x-vault-pin'];
-    if (!clientPin || clientPin !== VAULT_MASTER_PIN) {
-        return res.status(403).json({ success: false, message: 'Invalid vault PIN.' });
-    }
-
-    return res.json({ success: true, authorized: true });
-});
-
 const GALLERY_STORAGE_BUCKET = process.env.SUPABASE_GALLERY_BUCKET || 'gallery-media';
 
 app.get('/api/gallery', async (req, res) => {
@@ -655,42 +646,115 @@ app.delete('/api/programs/:id', requireAuth, requireRole('Super Admin'), async (
 });
 
 // --- MEETING MINUTES ROUTES ---
-app.get('/api/minutes', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('minutes')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/minutes', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    try {
+        const { data, error } = await supabase
+            .from('minutes')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('[Supabase] Failed to load meeting minutes:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to load meeting minutes.' });
+        }
+        return res.json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('[Supabase] Meeting minutes fetch error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to load meeting minutes.' });
+    }
 });
 
-app.post('/api/minutes', async (req, res) => {
-  try {
-    const { date_time, venue, attendees, agenda, file_url, uploaded_by } = req.body;
-    const { data, error } = await supabase
-      .from('minutes')
-      .insert([{ date_time, venue, attendees, agenda, file_url, uploaded_by }]);
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.post('/api/minutes', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    const { date_time, venue, attendees, agenda, file_url, uploaded_by } = req.body || {};
+    if (!date_time || !venue || !file_url) {
+        return res.status(400).json({ success: false, message: 'Meeting date, venue, and minutes file are required.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('minutes')
+            .insert([{
+                date_time,
+                venue: String(venue).trim(),
+                attendees: String(attendees || ''),
+                agenda: String(agenda || ''),
+                file_url: String(file_url),
+                uploaded_by: String(uploaded_by || req.user.username || 'Authorized Officer').trim()
+            }])
+            .select('*')
+            .single();
+        if (error) {
+            console.error('[Supabase] Failed to save meeting minutes:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to save meeting minutes.' });
+        }
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Meeting minutes save error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to save meeting minutes.' });
+    }
 });
 
-app.delete('/api/minutes/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { data, error } = await supabase
-      .from('minutes')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.put('/api/minutes/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+
+    const { date_time, venue, attendees, agenda, file_url, uploaded_by } = req.body || {};
+    if (!date_time || !venue) {
+        return res.status(400).json({ success: false, message: 'Meeting date and venue are required.' });
+    }
+
+    try {
+        const updates = {
+            date_time,
+            venue: String(venue).trim(),
+            attendees: String(attendees || ''),
+            agenda: String(agenda || ''),
+            uploaded_by: String(uploaded_by || req.user.username || 'Authorized Officer').trim()
+        };
+        if (typeof file_url === 'string' && file_url) updates.file_url = file_url;
+
+        const { data, error } = await supabase
+            .from('minutes')
+            .update(updates)
+            .eq('id', req.params.id)
+            .select('*')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to update meeting minutes:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to update meeting minutes.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Meeting minutes not found.' });
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Meeting minutes update error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to update meeting minutes.' });
+    }
+});
+
+app.delete('/api/minutes/:id', requireAuth, requireRole('Super Admin'), async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const clientPin = req.headers['x-vault-pin'];
+    if (!clientPin || clientPin !== VAULT_MASTER_PIN) {
+        return res.status(403).json({ success: false, message: 'Invalid vault PIN.' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('minutes')
+            .delete()
+            .eq('id', req.params.id)
+            .select('id')
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Failed to delete meeting minutes:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to delete meeting minutes.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Meeting minutes not found.' });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('[Supabase] Meeting minutes delete error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to delete meeting minutes.' });
+    }
 });

@@ -60,6 +60,60 @@ const defaultPrograms = [];
 const defaultPolicies = [];
 const defaultSOPs = [];
 const defaultMinutes = [];
+
+let liveMinutes = null;
+
+function getMinutes() {
+    return liveMinutes || getPortalData(STORAGE_KEYS.minutes, defaultMinutes);
+}
+
+function normalizeMinuteRecord(row) {
+    const dateTime = row.date_time || row.dateTime || row.date || '';
+    const displayDate = dateTime ? new Date(dateTime).toLocaleString() : '';
+    return {
+        id: row.id,
+        date: displayDate,
+        dateTime: displayDate,
+        date_time: dateTime,
+        venue: row.venue || '',
+        attendees: row.attendees || '',
+        agenda: row.agenda || '',
+        uploadedBy: row.uploaded_by || row.uploadedBy || 'Authorized Officer',
+        fileData: row.file_url || row.fileData || '',
+        fileName: row.file_name || row.fileName || `meeting-minutes-${row.id}`
+    };
+}
+
+function cacheMinutes() {
+    if (liveMinutes) localStorage.setItem(STORAGE_KEYS.minutes, JSON.stringify(liveMinutes));
+}
+
+function escapeMinuteHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+}
+
+async function refreshMinutesFromDatabase() {
+    try {
+        const response = await fetch('/api/minutes', { credentials: 'include' });
+        const result = await response.json();
+        if (!response.ok || !result.success || !Array.isArray(result.data)) {
+            throw new Error(result.message || 'Unable to load meeting minutes.');
+        }
+        liveMinutes = result.data.map(normalizeMinuteRecord);
+        cacheMinutes();
+        renderMinutesTable();
+        return true;
+    } catch (error) {
+        console.error('Could not load meeting minutes from Supabase:', error);
+        return false;
+    }
+}
 const defaultContracts = [];
 const defaultTemplates = [];
 const defaultMemberDocuments = [];
@@ -1543,7 +1597,10 @@ function closeDocumentUploadModal() {
     }
     if (form) {
         form.reset();
+        form.removeAttribute('data-editing-id');
     }
+    const fileInput = document.getElementById('uploadFile');
+    if (fileInput) fileInput.required = true;
 }
 
 // 3. Document submission form interceptor listener
@@ -1554,6 +1611,7 @@ document.addEventListener("DOMContentLoaded", function() {
             e.preventDefault();
 
             const kind = document.getElementById('uploadKind').value;
+            if (kind === 'minutes') return;
             // Target the space and special character safely using bracket notation
             const dateTime = document.getElementById('uploadDate & time').value; 
             const venue = document.getElementById('uploadVenue').value.trim();
@@ -1609,34 +1667,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Run render loops initially on startup load
     renderMinutesTable();
+    if (document.getElementById('minutesTable')) refreshMinutesFromDatabase();
 });
 
 // 4. Render Engine for Minutes Data Table
 function renderMinutesTable() {
-    const minutesTableBody = document.querySelector("#minutesTable tbody");
-    if (!minutesTableBody) return;
-
-    const minutesData = getPortalData(STORAGE_KEYS.minutes, defaultMinutes || []);
-    
-    if (minutesData.length === 0) {
-        minutesTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; font-style: italic; padding: 20px;">No meeting minutes found in repository register.</td></tr>`;
-        return;
-    }
-
-    minutesTableBody.innerHTML = minutesData.map((doc, idx) => `
-        <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 12px;">${doc.dateTime}</td>
-            <td style="padding: 12px;"><strong>${doc.venue}</strong></td>
-            <td style="padding: 12px; font-size: 13px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${doc.attendees}">${doc.attendees}</td>
-            <td style="padding: 12px; font-size: 13px;">${doc.agenda}</td>
-            <td style="padding: 12px;"><i class="fas fa-user-edit"></i> ${doc.uploadedBy}</td>
-            <td style="padding: 12px;">
-                <a href="${doc.fileData}" download="${doc.fileName}" class="action-btn-purple" style="padding: 4px 8px; font-size: 12px; text-decoration: none; display: inline-block;">
-                    <i class="fas fa-download"></i> Get File
-                </a>
-            </td>
-        </tr>
-    `).join('');
+    renderMinutesTableRepository();
 }
 
 // Replacement function for frontend JavaScript triggers
@@ -1787,16 +1823,7 @@ function downloadMinutesPDF(id) {
 
 // ====== FRONTEND DYNAMIC PDF ENGINE (DEPENDENCY FREE) ======
 function downloadMinutesPDF(id) {
-    let minutesList = [];
-    try {
-        minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes)) || [];
-    } catch (e) {
-        alert("Failed to read data vault registry.");
-        return;
-    }
-
-    // Trace precise matching item record
-    const record = minutesList.find(item => item.id == id);
+    const record = getMinutes().find(item => String(item.id) === String(id));
 
     if (!record) {
         alert("Error: Could not trace target minutes entry inside database arrays.");
@@ -1947,13 +1974,7 @@ function renderMinutesTableRepository() {
     
     if (!fallbackBody) return; // Not on the documents page right now, exit safely
 
-    // Pull the real-time entries out of local storage
-    let minutesList = [];
-    try {
-        minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes)) || [];
-    } catch (e) {
-        console.error("Failed to read minutes storage array:", e);
-    }
+    const minutesList = getMinutes();
 
     // Clear out placeholder or hardcoded table rows
     fallbackBody.innerHTML = "";
@@ -1963,20 +1984,19 @@ function renderMinutesTableRepository() {
         return;
     }
 
-    // Loop through your local array records and inject them with the action features
     fallbackBody.innerHTML = minutesList.map(item => `
         <tr>
-            <td>${item.date || 'N/A'}</td>
-            <td>${item.venue || 'N/A'}</td>
-            <td><div style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.attendees}">${item.attendees || 'N/A'}</div></td>
-            <td><div style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.agenda}">${item.agenda || 'N/A'}</div></td>
-            <td>${item.uploadedBy || 'Mbaruk Mbaruk'}</td>
+            <td>${escapeMinuteHtml(item.date || item.dateTime || 'N/A')}</td>
+            <td>${escapeMinuteHtml(item.venue || 'N/A')}</td>
+            <td><div style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeMinuteHtml(item.attendees)}">${escapeMinuteHtml(item.attendees || 'N/A')}</div></td>
+            <td><div style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeMinuteHtml(item.agenda)}">${escapeMinuteHtml(item.agenda || 'N/A')}</div></td>
+            <td>${escapeMinuteHtml(item.uploadedBy || 'Authorized Officer')}</td>
             <td>
-                <button class="view-btn" style="padding: 4px 8px; font-size:12px;" onclick="alert('Viewing text logs:\\n\\nAgenda:\\n${item.agenda.replace(/'/g, "\\'")}')">View</button>
+                <button class="view-btn" style="padding: 4px 8px; font-size:12px;" onclick="viewMinutesFile('${escapeMinuteHtml(item.id)}')">View / Edit</button>
             </td>
             <td>
-                <button class="pdf-icon-btn" onclick="downloadMinutesPDF('${item.id}')" title="Get File as PDF">📄 PDF</button>
-                <button class="delete-icon-btn" onclick="deleteMinutesEntry('${item.id}')" title="Delete Meeting Minutes" aria-label="Delete Meeting Minutes">🗑️ Delete</button>
+                <button class="pdf-icon-btn" onclick="downloadMinutesPDF('${escapeMinuteHtml(item.id)}')" title="Get File as PDF">📄 PDF</button>
+                <button class="delete-icon-btn" onclick="deleteMinutesEntry('${escapeMinuteHtml(item.id)}')" title="Delete Meeting Minutes" aria-label="Delete Meeting Minutes">🗑️ Delete</button>
             </td>
         </tr>
     `).join('');
@@ -1996,16 +2016,7 @@ if (document.querySelector("#documentsReportsTable") || document.querySelector("
 
 // ====== VIEW & EDIT MODAL INJECTION LOGIC ======
 function viewMinutesFile(id) {
-    // 1. Fetch the exact record data from local storage storage registry
-    let minutesList = [];
-    try {
-        minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes)) || [];
-    } catch (e) {
-        alert("Could not load repository records.");
-        return;
-    }
-
-    const record = minutesList.find(item => item.id == id);
+    const record = getMinutes().find(item => String(item.id) === String(id));
     if (!record) {
         alert("Record not found.");
         return;
@@ -2022,16 +2033,21 @@ function viewMinutesFile(id) {
     // 3. Populate your input fields with the existing saved text strings
     const dateInput = document.getElementById("uploadDate & time");
     const venueInput = document.getElementById("uploadVenue");
-    const attendeesTextarea = document.getElementById("meeting-attendees");
-    const agendaTextarea = document.getElementById("meeting-agenda");
+    const attendeesTextarea = document.getElementById("uploadAttendees");
+    const agendaTextarea = document.getElementById("uploadAgenda");
+    const fileInput = document.getElementById("uploadFile");
 
-    // Reformat space back into 'T' character to ensure HTML datetime-local inputs can read it cleanly
-    if (dateInput && record.date) {
-        dateInput.value = record.date.replace(" ", "T");
+    if (dateInput && record.date_time) {
+        const date = new Date(record.date_time);
+        dateInput.value = Number.isNaN(date.getTime()) ? '' : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    } else if (dateInput && record.date) {
+        const date = new Date(record.date);
+        dateInput.value = Number.isNaN(date.getTime()) ? '' : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     }
     if (venueInput) venueInput.value = record.venue || "";
     if (attendeesTextarea) attendeesTextarea.value = record.attendees || "";
     if (agendaTextarea) agendaTextarea.value = record.agenda || "";
+    if (fileInput) fileInput.required = false;
 
     // 4. Attach a data attribute flag to the form so it knows it's editing an existing record
     const form = document.getElementById("documentUploadForm");
@@ -2054,23 +2070,18 @@ async function deleteMinutesEntry(id) {
     }
 
     try {
-        const response = await fetch(`/api/documents/minutes/${encodeURIComponent(id)}/delete-authorization`, {
-            method: 'POST',
+        const response = await fetch(`/api/minutes/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
             credentials: 'include',
             headers: { 'x-vault-pin': securityPin.trim() }
         });
         const result = await response.json();
-        if (!response.ok || !result.success || !result.authorized) {
+        if (!response.ok || !result.success) {
             throw new Error(result.message || 'The vault PIN was rejected.');
         }
 
-        const minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes) || '[]');
-        const updatedMinutes = minutesList.filter(item => String(item.id) !== String(id));
-        if (updatedMinutes.length === minutesList.length) {
-            throw new Error('Meeting minutes record not found.');
-        }
-
-        localStorage.setItem(STORAGE_KEYS.minutes, JSON.stringify(updatedMinutes));
+        liveMinutes = getMinutes().filter(item => String(item.id) !== String(id));
+        cacheMinutes();
         renderMinutesTableRepository();
         if (typeof renderDocumentsPage === 'function') renderDocumentsPage();
         alert('Meeting minutes deleted.');
@@ -2079,59 +2090,79 @@ async function deleteMinutesEntry(id) {
         alert(error.message || 'Unable to delete meeting minutes.');
     }
 }
-function submitDocumentUploadForm(event) {
+async function submitDocumentUploadForm(event) {
     event.preventDefault();
 
     const dateInput = document.getElementById("uploadDate & time");
     const venueInput = document.getElementById("uploadVenue");
-    const attendeesInput = document.getElementById("meeting-attendees");
-    const agendaInput = document.getElementById("meeting-agenda");
+    const attendeesInput = document.getElementById("uploadAttendees");
+    const agendaInput = document.getElementById("uploadAgenda");
     const form = document.getElementById("documentUploadForm");
+    const fileInput = document.getElementById("uploadFile");
+    const uploadedByInput = document.getElementById("uploadName");
 
     const dateValue = dateInput ? dateInput.value : "";
     const venueValue = venueInput ? venueInput.value.trim() : "";
     const attendeesValue = attendeesInput ? attendeesInput.value.trim() : "";
     const agendaValue = agendaInput ? agendaInput.value.trim() : "";
-
-    let minutesList = JSON.parse(localStorage.getItem(STORAGE_KEYS.minutes)) || [];
-    
-    // Check if we are saving changes to an existing row or making a brand new one
     const editingId = form ? form.getAttribute("data-editing-id") : null;
+    const selectedFile = fileInput && fileInput.files ? fileInput.files[0] : null;
 
-    if (editingId) {
-        // --- EDITING MODE ROUTINE ---
-        const index = minutesList.findIndex(item => item.id == editingId);
-        if (index !== -1) {
-            minutesList[index].date = dateValue.replace("T", " ");
-            minutesList[index].venue = venueValue;
-            minutesList[index].attendees = attendeesValue;
-            minutesList[index].agenda = agendaValue;
+    if (!dateValue || !venueValue || (!editingId && !selectedFile)) {
+        alert('Please provide the meeting date, venue, and minutes file.');
+        return;
+    }
+    if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
+        alert('The minutes file must be 10 MB or smaller.');
+        return;
+    }
+
+    try {
+        let fileUrl;
+        if (selectedFile) {
+            fileUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => typeof reader.result === 'string'
+                    ? resolve(reader.result)
+                    : reject(new Error('Unable to read the selected minutes file.'));
+                reader.onerror = () => reject(reader.error || new Error('Unable to read the selected minutes file.'));
+                reader.readAsDataURL(selectedFile);
+            });
         }
-        form.removeAttribute("data-editing-id"); // Clear flag out
-        alert("Meeting details successfully updated!");
-    } else {
-        // --- CREATING NEW MODE ROUTINE ---
-        const newRecord = {
-            id: Date.now(),
-            date: dateValue.replace("T", " "),
+
+        const payload = {
+            date_time: new Date(dateValue).toISOString(),
             venue: venueValue,
             attendees: attendeesValue,
             agenda: agendaValue,
-            uploadedBy: "Mbaruk Mbaruk"
+            uploaded_by: uploadedByInput && uploadedByInput.value.trim()
+                ? uploadedByInput.value.trim()
+                : 'Authorized Officer'
         };
-        minutesList.push(newRecord);
-        alert("New minutes saved to the MRT Repository!");
+        if (fileUrl) payload.file_url = fileUrl;
+
+        const response = await fetch(editingId
+            ? `/api/minutes/${encodeURIComponent(editingId)}`
+            : '/api/minutes', {
+            method: editingId ? 'PUT' : 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Unable to save meeting minutes.');
+        }
+
+        await refreshMinutesFromDatabase();
+        closeDocumentUploadModal();
+        const modalTitle = document.querySelector("#documentUploadModal h2");
+        if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-upload"></i> Upload Document`;
+        alert(editingId ? 'Meeting details successfully updated!' : 'New minutes saved to the MRT Repository!');
+    } catch (error) {
+        console.error('Could not save meeting minutes:', error);
+        alert(error.message || 'Unable to save meeting minutes.');
     }
-
-    localStorage.setItem(STORAGE_KEYS.minutes, JSON.stringify(minutesList));
-    form.reset();
-    closeDocumentUploadModal();
-    
-    // Reset modal header text back to standard title state
-    const modalTitle = document.querySelector("#documentUploadModal h2");
-    if (modalTitle) modalTitle.innerHTML = `<i class="fas fa-upload"></i> Upload Document`;
-
-    renderMinutesTableRepository();
 }
 
 // Inside your login form submission handler:

@@ -1361,3 +1361,31 @@ app.delete('/api/expenditures/:id', requireAuth, requireRole('Super Admin'), asy
         return res.status(500).json({ success: false, message: 'Unable to delete expenditure.' });
     }
 });
+
+// --- TREASURY / BANK BALANCE ROUTES ---
+app.get('/api/treasury', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('treasury')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    res.json(data[0] || { balance: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/treasury', async (req, res) => {
+  try {
+    const { balance } = req.body;
+    const { data, error } = await supabase
+      .from('treasury')
+      .insert([{ balance }]);
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});

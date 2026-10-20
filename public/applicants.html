@@ -358,7 +358,7 @@
                 from_email: EMAILJS_FROM_EMAIL,
                 to_email: recipient,
                 to_name: recipientName,
-                setup_link: setupLink,
+                setup_link: `https://mrt1-app.onrender.com/reset-password.html?token=${token}`,
                 token: token
             }).then(() => {
                 alert('Password setup email sent successfully.');

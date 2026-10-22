@@ -2069,6 +2069,7 @@ function renderGalleryCarousel(items) {
     const indicators = document.getElementById('carousel-indicators-container');
     const title = document.getElementById('active-slide-title');
     const description = document.getElementById('active-slide-desc');
+    const seeMoreButton = document.getElementById('gallery-see-more');
     if (!carousel || !track || !indicators) return;
 
     if (window.mrtGalleryCarouselTimer) {
@@ -2083,6 +2084,7 @@ function renderGalleryCarousel(items) {
         carousel.classList.add('is-empty');
         if (title) title.textContent = 'No gallery items available';
         if (description) description.textContent = '';
+        if (seeMoreButton) seeMoreButton.hidden = true;
         return;
     }
 
@@ -2107,8 +2109,25 @@ function renderGalleryCarousel(items) {
     const slides = Array.from(track.querySelectorAll('.gallery-carousel-slide'));
     const dots = Array.from(indicators.querySelectorAll('.gallery-carousel-indicator'));
     const updateDescription = () => {
-        if (title) title.textContent = validItems[activeIndex].title || '';
-        if (description) description.textContent = validItems[activeIndex].description || '';
+        const item = validItems[activeIndex];
+        const fullDescription = item.description || '';
+        const isLong = fullDescription.length > 120;
+        const preview = isLong
+            ? `${fullDescription.slice(0, 117).trimEnd()}…`
+            : fullDescription;
+        if (title) title.textContent = item.title || '';
+        if (description) description.textContent = preview;
+        if (seeMoreButton) {
+            seeMoreButton.hidden = !isLong;
+            seeMoreButton.textContent = 'See more';
+            seeMoreButton.setAttribute('aria-expanded', 'false');
+            seeMoreButton.onclick = () => {
+                const isExpanded = seeMoreButton.getAttribute('aria-expanded') === 'true';
+                description.textContent = isExpanded ? preview : fullDescription;
+                seeMoreButton.textContent = isExpanded ? 'See more' : 'See less';
+                seeMoreButton.setAttribute('aria-expanded', String(!isExpanded));
+            };
+        }
     };
     const showSlide = index => {
         activeIndex = (index + slides.length) % slides.length;

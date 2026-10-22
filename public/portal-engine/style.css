@@ -2342,9 +2342,9 @@ main,
 }
 
 .gallery-slide-details {
-    width: min(750px, calc(100% - 32px));
-    margin: 20px auto 40px;
-    padding: 22px 26px;
+    width: min(620px, calc(100% - 32px));
+    margin: 12px auto 32px;
+    padding: 16px 20px;
     text-align: center;
     background: #fff;
     border: 1px solid rgba(33, 27, 43, 0.08);
@@ -2353,16 +2353,40 @@ main,
 }
 
 .gallery-slide-details h2 {
-    margin: 0 0 8px;
+    margin: 0 0 5px;
     color: #211b2b;
-    font-size: clamp(1.15rem, 2vw, 1.45rem);
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
 }
 
 .gallery-slide-details p {
     margin: 0;
     color: #686271;
-    line-height: 1.65;
+    line-height: 1.5;
     white-space: pre-line;
+}
+
+.gallery-see-more {
+    margin-top: 8px;
+    padding: 0;
+    border: 0;
+    color: #5c2d91;
+    background: transparent;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.gallery-see-more:hover,
+.gallery-see-more:focus-visible {
+    color: #3d1c68;
+    text-decoration: underline;
+}
+
+.gallery-see-more:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+    border-radius: 2px;
 }
 
 .gallery-carousel-heading {

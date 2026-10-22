@@ -1982,6 +1982,7 @@ function renderGalleryPage(category = "All") {
     const filteredItems = category === "All"
         ? galleryItems
         : galleryItems.filter(item => item.category === category);
+    renderGalleryCarousel(filteredItems);
 
     if (!filteredItems.length) {
         galleryGrid.innerHTML = `<div class="gallery-empty-message"><p>No gallery items found for ${escapeGalleryText(category)}.</p></div>`;
@@ -2060,6 +2061,76 @@ function renderGalleryPage(category = "All") {
             </div>
         `;
     }).join('');
+}
+
+function renderGalleryCarousel(items) {
+    const carousel = document.getElementById('mrtGalleryCarousel');
+    const track = document.getElementById('carousel-items-container');
+    const indicators = document.getElementById('carousel-indicators-container');
+    if (!carousel || !track || !indicators) return;
+
+    if (window.mrtGalleryCarouselTimer) {
+        clearInterval(window.mrtGalleryCarouselTimer);
+        window.mrtGalleryCarouselTimer = null;
+    }
+
+    const validItems = items.filter(item => safeGalleryUrl(item.src));
+    if (!validItems.length) {
+        track.innerHTML = '<p class="gallery-carousel-empty">No gallery items are available in this category.</p>';
+        indicators.innerHTML = '';
+        carousel.classList.add('is-empty');
+        return;
+    }
+
+    carousel.classList.remove('is-empty');
+    track.innerHTML = validItems.map((item, index) => `
+        <article class="gallery-carousel-slide${index === 0 ? ' active' : ''}" aria-hidden="${index !== 0}">
+            ${item.type === 'video'
+                ? `<video controls preload="metadata"><source src="${escapeGalleryText(safeGalleryUrl(item.src))}">Your browser does not support the video tag.</video>`
+                : `<img src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>`}
+            <div class="gallery-carousel-caption">
+                <h3>${escapeGalleryText(item.title)}</h3>
+                <p>${escapeGalleryText(item.description)}</p>
+            </div>
+        </article>
+    `).join('');
+    indicators.innerHTML = validItems.map((item, index) => `
+        <button type="button" class="gallery-carousel-indicator${index === 0 ? ' active' : ''}"
+            data-carousel-index="${index}" aria-label="Show slide ${index + 1}: ${escapeGalleryText(item.title)}"
+            aria-current="${index === 0 ? 'true' : 'false'}"></button>
+    `).join('');
+
+    let activeIndex = 0;
+    const slides = Array.from(track.querySelectorAll('.gallery-carousel-slide'));
+    const dots = Array.from(indicators.querySelectorAll('.gallery-carousel-indicator'));
+    const showSlide = index => {
+        activeIndex = (index + slides.length) % slides.length;
+        slides.forEach((slide, slideIndex) => {
+            const isActive = slideIndex === activeIndex;
+            slide.classList.toggle('active', isActive);
+            slide.setAttribute('aria-hidden', String(!isActive));
+            const video = slide.querySelector('video');
+            if (video && !isActive) video.pause();
+        });
+        dots.forEach((dot, dotIndex) => {
+            const isActive = dotIndex === activeIndex;
+            dot.classList.toggle('active', isActive);
+            dot.setAttribute('aria-current', String(isActive));
+        });
+    };
+
+    const previousButton = carousel.querySelector('.gallery-carousel-prev');
+    const nextButton = carousel.querySelector('.gallery-carousel-next');
+    if (previousButton) previousButton.onclick = () => showSlide(activeIndex - 1);
+    if (nextButton) nextButton.onclick = () => showSlide(activeIndex + 1);
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => showSlide(index));
+    });
+
+    const shouldAutoPlay = slides.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (shouldAutoPlay) {
+        window.mrtGalleryCarouselTimer = setInterval(() => showSlide(activeIndex + 1), 5000);
+    }
 }
 
 function initGallerySlideshow(slideCount) {

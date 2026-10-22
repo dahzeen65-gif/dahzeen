@@ -2088,7 +2088,8 @@ function renderGalleryCarousel(items) {
             <div class="gallery-carousel-media">
                 ${item.type === 'video'
                     ? `<video controls preload="metadata"><source src="${escapeGalleryText(safeGalleryUrl(item.src))}">Your browser does not support the video tag.</video>`
-                    : `<img src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>`}
+                    : `<img class="gallery-carousel-backdrop" src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="" aria-hidden="true" loading="lazy">
+                       <img class="gallery-carousel-image" src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>`}
             </div>
             <div class="gallery-carousel-caption">
                 <h3>${escapeGalleryText(item.title)}</h3>

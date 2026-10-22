@@ -1961,6 +1961,7 @@ function renderProgramsTable() {
         button.addEventListener('click', () => deleteProgramRecord(button.dataset.programDelete));
     });
 }
+
 async function deleteProgramRecord(id) {
     if (!confirm("Are you sure you want to permanently delete this program?")) return;
     try {
@@ -2066,6 +2067,8 @@ function renderGalleryCarousel(items) {
     const carousel = document.getElementById('mrtGalleryCarousel');
     const track = document.getElementById('carousel-items-container');
     const indicators = document.getElementById('carousel-indicators-container');
+    const title = document.getElementById('active-slide-title');
+    const description = document.getElementById('active-slide-desc');
     if (!carousel || !track || !indicators) return;
 
     if (window.mrtGalleryCarouselTimer) {
@@ -2078,6 +2081,8 @@ function renderGalleryCarousel(items) {
         track.innerHTML = '<p class="gallery-carousel-empty">No gallery items are available in this category.</p>';
         indicators.innerHTML = '';
         carousel.classList.add('is-empty');
+        if (title) title.textContent = 'No gallery items available';
+        if (description) description.textContent = '';
         return;
     }
 
@@ -2090,10 +2095,6 @@ function renderGalleryCarousel(items) {
                     : `<img class="gallery-carousel-backdrop" src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="" aria-hidden="true" loading="lazy">
                        <img class="gallery-carousel-image" src="${escapeGalleryText(safeGalleryUrl(item.src))}" alt="${escapeGalleryText(item.title)}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>`}
             </div>
-            <div class="gallery-carousel-caption">
-                <h3>${escapeGalleryText(item.title)}</h3>
-                <p>${escapeGalleryText(item.description)}</p>
-            </div>
         </article>
     `).join('');
     indicators.innerHTML = validItems.map((item, index) => `
@@ -2105,6 +2106,10 @@ function renderGalleryCarousel(items) {
     let activeIndex = 0;
     const slides = Array.from(track.querySelectorAll('.gallery-carousel-slide'));
     const dots = Array.from(indicators.querySelectorAll('.gallery-carousel-indicator'));
+    const updateDescription = () => {
+        if (title) title.textContent = validItems[activeIndex].title || '';
+        if (description) description.textContent = validItems[activeIndex].description || '';
+    };
     const showSlide = index => {
         activeIndex = (index + slides.length) % slides.length;
         slides.forEach((slide, slideIndex) => {
@@ -2119,7 +2124,9 @@ function renderGalleryCarousel(items) {
             dot.classList.toggle('active', isActive);
             dot.setAttribute('aria-current', String(isActive));
         });
+        updateDescription();
     };
+    updateDescription();
 
     const previousButton = carousel.querySelector('.gallery-carousel-prev');
     const nextButton = carousel.querySelector('.gallery-carousel-next');

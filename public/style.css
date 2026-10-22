@@ -2974,6 +2974,30 @@ img {
   padding: 0;
 }
 
+.gallery-slide-details {
+  width: min(750px, calc(100% - 32px));
+  margin: 20px auto 40px;
+  padding: 22px 26px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid rgba(33, 27, 43, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(33, 27, 43, 0.08);
+}
+
+.gallery-slide-details h2 {
+  margin: 0 0 8px;
+  color: #211b2b;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+}
+
+.gallery-slide-details p {
+  margin: 0;
+  color: #686271;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
 .gallery-carousel-heading {
   margin: 0 0 22px;
   text-align: center;

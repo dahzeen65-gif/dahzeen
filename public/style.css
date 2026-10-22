@@ -2969,13 +2969,13 @@ img {
 }
 
 .gallery-carousel-section {
-  max-width: 1200px;
-  margin: 48px auto;
-  padding: 0 24px;
+  width: 100%;
+  margin: 24px 0;
+  padding: 0;
 }
 
 .gallery-carousel-heading {
-  margin-bottom: 20px;
+  margin: 0 0 16px;
   text-align: center;
 }
 
@@ -2987,10 +2987,12 @@ img {
 .gallery-carousel {
   position: relative;
   overflow: hidden;
+  width: 100%;
   min-height: 320px;
-  border-radius: 18px;
-  background: #17171b;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  border: 0;
+  border-radius: 0;
+  background: #0f172a;
+  box-shadow: none;
 }
 
 .gallery-carousel-track {
@@ -3022,7 +3024,7 @@ img {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 0;
   background-color: #0f172a;
 }
 
@@ -3124,7 +3126,7 @@ img {
 
 @media (max-width: 600px) {
   .gallery-carousel-section {
-    padding: 0 14px;
+    padding: 0;
   }
 
   .gallery-carousel,

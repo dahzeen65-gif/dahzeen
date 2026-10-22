@@ -2337,25 +2337,34 @@ main,
 
 .gallery-carousel-section {
     width: 100%;
-    margin: 24px 0;
+    margin: 32px 0 40px;
     padding: 0;
 }
 
 .gallery-carousel-heading {
-    margin: 0 0 16px;
+    margin: 0 0 22px;
     text-align: center;
 }
 
-.gallery-carousel-heading h2,
-.gallery-carousel-heading p {
+.gallery-carousel-heading h2 {
     margin: 0 0 8px;
+    color: #211b2b;
+    font-size: clamp(1.5rem, 3vw, 2.15rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.gallery-carousel-heading p {
+    margin: 0;
+    color: #686271;
+    font-size: 0.98rem;
 }
 
 .gallery-carousel {
     position: relative;
     overflow: hidden;
     width: 100%;
-    min-height: 320px;
+    min-height: 520px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -2375,13 +2384,15 @@ main,
     justify-content: center;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.35s ease;
+    transition: opacity 0.45s ease, transform 0.6s ease;
+    transform: scale(0.99);
 }
 
 .gallery-carousel-slide.active {
     position: relative;
     opacity: 1;
     visibility: visible;
+    transform: scale(1);
 }
 
 .gallery-carousel-media {
@@ -2407,17 +2418,35 @@ main,
 
 .gallery-carousel-caption {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    padding: 42px 64px 44px;
+    right: 24px;
+    bottom: 52px;
+    left: 24px;
+    width: fit-content;
+    max-width: min(760px, calc(100% - 48px));
+    margin: 0 auto;
+    padding: 18px 24px;
     color: #fff;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+    text-align: center;
+    background: rgba(20, 18, 26, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
-.gallery-carousel-caption h3,
+.gallery-carousel-caption h3 {
+    margin: 0 0 5px;
+    color: #fff;
+    font-size: clamp(1.05rem, 2vw, 1.4rem);
+    font-weight: 750;
+}
+
 .gallery-carousel-caption p {
-    margin: 0 0 6px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.94rem;
+    line-height: 1.5;
 }
 
 .gallery-carousel-control {
@@ -2425,58 +2454,71 @@ main,
     z-index: 2;
     top: 50%;
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 48px;
+    height: 48px;
     place-items: center;
-    border: 0;
+    border: 1px solid rgba(255, 255, 255, 0.42);
     border-radius: 50%;
     color: #fff;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(20, 18, 26, 0.48);
     cursor: pointer;
     transform: translateY(-50%);
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    backdrop-filter: blur(8px);
 }
 
 .gallery-carousel-control:hover,
 .gallery-carousel-control:focus-visible {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(92, 45, 145, 0.9);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.22);
+    transform: translateY(-50%) scale(1.06);
+}
+
+.gallery-carousel-control:focus-visible,
+.gallery-carousel-indicator:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
 }
 
 .gallery-carousel-prev {
-    left: 16px;
+    left: 24px;
 }
 
 .gallery-carousel-next {
-    right: 16px;
+    right: 24px;
 }
 
 .gallery-carousel-indicators {
     position: absolute;
     z-index: 3;
     right: 0;
-    bottom: 12px;
+    bottom: 16px;
     left: 0;
     display: flex;
     justify-content: center;
-    gap: 8px;
+    gap: 7px;
 }
 
 .gallery-carousel-indicator {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     padding: 0;
-    border: 1px solid #fff;
+    border: 1px solid rgba(255, 255, 255, 0.9);
     border-radius: 50%;
-    background: transparent;
+    background: rgba(20, 18, 26, 0.4);
     cursor: pointer;
+    transition: width 0.2s ease, border-radius 0.2s ease, background 0.2s ease;
 }
 
 .gallery-carousel-indicator.active {
+    width: 26px;
+    border-radius: 999px;
     background: #fff;
 }
 
 .gallery-carousel-empty {
     padding: 48px 24px;
-    color: #fff;
+    color: #686271;
     text-align: center;
 }
 
@@ -2512,6 +2554,23 @@ main,
     }
 
     .gallery-carousel-caption {
-        padding: 36px 52px 42px;
+        right: 16px;
+        bottom: 50px;
+        left: 16px;
+        max-width: calc(100% - 32px);
+        padding: 14px 16px;
+    }
+
+    .gallery-carousel-prev {
+        left: 12px;
+    }
+
+    .gallery-carousel-next {
+        right: 12px;
+    }
+
+    .gallery-carousel-control {
+        width: 40px;
+        height: 40px;
     }
 }

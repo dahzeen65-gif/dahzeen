@@ -1961,7 +1961,6 @@ function renderProgramsTable() {
         button.addEventListener('click', () => deleteProgramRecord(button.dataset.programDelete));
     });
 }
-
 async function deleteProgramRecord(id) {
     if (!confirm("Are you sure you want to permanently delete this program?")) return;
     try {

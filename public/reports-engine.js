@@ -325,3 +325,135 @@ function formatReportIntoCleanSessions(text) {
 
   return html || `<p class="text-secondary" style="line-height: 1.8;">${cleanText}</p>`;
 }
+function renderStructuredReport(report) {
+  const rawDesc = report.description || "";
+
+  return `
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+      <!-- Report Header -->
+      <div class="border-bottom pb-3 mb-4">
+        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
+          ${report.type || 'Activity Report'}
+        </span>
+        <h3 class="fw-bold text-dark mb-2">${report.title || report.activity_name || 'Activity Report'}</h3>
+        <div class="d-flex flex-wrap gap-3 text-muted small">
+          <span>📅 <strong>Date Filed:</strong> ${report.date_filed || 'N/A'}</span>
+          <span>✍️ <strong>Filed By:</strong> ${report.filed_by || 'MRT Team'}</span>
+        </div>
+      </div>
+
+      <!-- Official Activity Metadata Table -->
+      <div class="table-responsive mb-4">
+        <table class="table table-bordered align-middle text-secondary mb-0" style="font-size: 0.9rem;">
+          <tbody>
+            <tr>
+              <th class="bg-light text-dark w-25">Activity name</th>
+              <td>${report.activity_name || report.title || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Date of activity</th>
+              <td>${report.activity_date || report.date_filed || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Duration (hours)</th>
+              <td>${report.duration || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Facilitation methods used</th>
+              <td>${report.facilitation_methods || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Activity facilitators (Titles)</th>
+              <td>${report.facilitators || report.filed_by || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Topics covered</th>
+              <td>${report.topics_covered || 'N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Commodities distributed</th>
+              <td>${report.commodities_distributed || 'None / N/A'}</td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Number of people reached</th>
+              <td>
+                <div class="row g-2">
+                  <div class="col-4"><strong>Male:</strong> ${report.male_reached || '0'}</div>
+                  <div class="col-4"><strong>Female:</strong> ${report.female_reached || '0'}</div>
+                  <div class="col-4"><strong>Total:</strong> ${report.total_reached || '0'}</div>
+                </div>
+                ${report.remarks ? `<div class="mt-1 text-muted small"><strong>Remarks:</strong> ${report.remarks}</div>` : ''}
+              </td>
+            </tr>
+            <tr>
+              <th class="bg-light text-dark">Total activity expenditure</th>
+              <td>${report.expenditure || 'KES 0'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Detailed Proceedings / Sessions -->
+      <h5 class="fw-bold text-dark mb-3">ACTIVITY PROCEEDINGS (Detailed write-up)</h5>
+      <div class="report-body text-secondary">
+        ${formatReportIntoCleanSessions(rawDesc)}
+      </div>
+    </div>
+  `;
+}
+
+function formatReportIntoCleanSessions(text) {
+  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
+  
+  let cleanText = text.replace(/^Description:\s*/i, '').trim();
+
+  let formatted = cleanText
+    .replace(/1\.\s+Introduction/g, '---SECTION_1---')
+    .replace(/2\.\s+Objectives(?:\s+of\s+the\s+Training)?/g, '---SECTION_2---')
+    .replace(/3\.\s+Topics\s+Covered/g, '---SECTION_3---')
+    .replace(/4\.\s+Key\s+Lessons(?:\s+Learned)?/g, '---SECTION_4---')
+    .replace(/5\.\s+Relevance(?:\s+to[^\.]+?)?(?=\s+6\.|$)/g, '---SECTION_5---')
+    .replace(/6\.\s+Recommendations/g, '---SECTION_6---');
+
+  let parts = formatted.split('---SECTION_');
+  let html = '';
+
+  let titles = {
+    '1': '1. Introduction',
+    '2': '2. Objectives',
+    '3': '3. Topics Covered',
+    '4': '4. Key Lessons Learned',
+    '5': '5. Relevance to Miritini Response Team',
+    '6': '6. Recommendations'
+  };
+
+  let colors = {
+    '1': 'border-primary',
+    '2': 'border-success',
+    '3': 'border-warning',
+    '4': 'border-info',
+    '5': 'border-danger',
+    '6': 'border-secondary'
+  };
+
+  parts.forEach(part => {
+    if (!part.trim()) return;
+    let sectionNum = part.charAt(0);
+    let sectionContent = part.substring(2).trim();
+
+    sectionContent = sectionContent
+      .replace(/(3\.[1-4]\s+[A-Za-z\s]+)/g, '<br><strong class="text-primary mt-2 d-inline-block">$1</strong>')
+      .replace(/-\s+/g, '<br>&bull; ');
+
+    if (titles[sectionNum]) {
+      html += `
+        <div class="p-3 mb-3 bg-light rounded-4 border-start ${colors[sectionNum]} border-4 shadow-sm">
+          <h5 class="fw-bold text-dark mb-2">📌 ${titles[sectionNum]}</h5>
+          <p class="text-secondary mb-0" style="line-height: 1.8; white-space: pre-line;">${sectionContent}</p>
+        </div>
+      `;
+    }
+  });
+
+  return html || `<p class="text-secondary" style="line-height: 1.8;">${cleanText}</p>`;
+}

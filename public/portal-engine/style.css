@@ -2386,9 +2386,10 @@ main,
 .gallery-carousel-slide video {
     display: block;
     width: 100%;
-    height: min(65vh, 520px);
+    height: 450px;
     min-height: 320px;
-    object-fit: cover;
+    object-fit: contain;
+    background: #17171b;
 }
 
 .gallery-carousel-caption {

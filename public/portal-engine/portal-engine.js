@@ -1736,9 +1736,11 @@ function renderGalleryCarousel(items) {
     carousel.classList.remove('is-empty');
     track.innerHTML = validItems.map((item, index) => `
         <article class="gallery-carousel-slide${index === 0 ? ' active' : ''}" aria-hidden="${index !== 0}">
-            ${item.type === 'video'
-                ? `<video controls preload="metadata"><source src="${escapeMinuteHtml(item.src)}">Your browser does not support the video tag.</video>`
-                : `<img src="${escapeMinuteHtml(item.src)}" alt="${escapeMinuteHtml(item.title)}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>`}
+            <div class="gallery-carousel-media">
+                ${item.type === 'video'
+                    ? `<video controls preload="metadata"><source src="${escapeMinuteHtml(item.src)}">Your browser does not support the video tag.</video>`
+                    : `<img src="${escapeMinuteHtml(item.src)}" alt="${escapeMinuteHtml(item.title)}" ${index === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>`}
+            </div>
             <div class="gallery-carousel-caption">
                 <h3>${escapeMinuteHtml(item.title)}</h3>
                 <p>${escapeMinuteHtml(item.description)}</p>

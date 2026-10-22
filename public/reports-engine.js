@@ -1,6 +1,16 @@
 // ====== STORAGE KEY FOR REPORTS REGISTRY ======
 const REPORTS_STORAGE_KEY = 'mrt_portal_filed_reports';
 
+function escapeReportHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+}
+
 // ====== INITIALIZE WORKSPACE ON LOAD ======
 document.addEventListener("DOMContentLoaded", function() {
     renderReportsTable();
@@ -78,17 +88,27 @@ function renderReportsTable() {
     // Build the dynamic list with an instant delete action trigger button and optional thumbnail
     tableBody.innerHTML = storedReports.map(r => `
         <tr>
-            <td><strong>${r.title}</strong>${r.photo ? `<br><img src="${r.photo}" style="max-width:100px; margin-top:6px;">` : ''}</td>
-            <td><span class="badge ${r.type.includes('Incident') ? 'executive' : 'public'}">${r.type}</span></td>
-            <td>${r.dateFiled}</td>
-            <td>${r.filedBy}</td>
+            <td><strong>${escapeReportHtml(r.title)}</strong></td>
+            <td><span class="badge ${String(r.type || '').includes('Incident') ? 'executive' : 'public'}">${escapeReportHtml(r.type)}</span></td>
+            <td>${escapeReportHtml(r.dateFiled)}</td>
+            <td>${escapeReportHtml(r.filedBy)}</td>
             <td>
-                <button class="delete-row-btn" onclick="deleteReportRecord(${r.id})" title="Delete Report">
+                <button class="action-btn-purple" data-report-view="${escapeReportHtml(r.id)}" title="Read Report">
+                    <i class="fas fa-book-open"></i>
+                </button>
+                <button class="delete-row-btn" data-report-delete="${escapeReportHtml(r.id)}" title="Delete Report">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </td>
         </tr>
     `).join('');
+
+    tableBody.querySelectorAll('[data-report-view]').forEach(button => {
+        button.addEventListener('click', () => viewStructuredReport(button.dataset.reportView));
+    });
+    tableBody.querySelectorAll('[data-report-delete]').forEach(button => {
+        button.addEventListener('click', () => deleteReportRecord(button.dataset.reportDelete));
+    });
 }
 
 // Preview helper for report photo inputs (used if inputs are present in the DOM)
@@ -116,7 +136,7 @@ function deleteReportRecord(id) {
         let storedReports = JSON.parse(localStorage.getItem(REPORTS_STORAGE_KEY)) || [];
         
         // Filter out the selected record item
-        storedReports = storedReports.filter(report => report.id !== id);
+        storedReports = storedReports.filter(report => String(report.id) !== String(id));
         
         // Update local memory and re-render dashboard UI
         localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(storedReports));
@@ -126,334 +146,138 @@ function deleteReportRecord(id) {
 }
 
 function renderStructuredReport(report) {
-  const rawDesc = report.description || "";
+    const activityTitle = report.activity_name || report.title || 'Activity Report';
+    const dateFiled = report.date_filed || report.dateFiled || 'N/A';
+    const filedBy = report.filed_by || report.filedBy || 'MRT Team';
+    const metadata = [
+        ['Activity name', activityTitle],
+        ['Date of activity', report.activity_date || report.actDate || dateFiled],
+        ['Duration (hours)', report.duration],
+        ['Facilitation methods used', report.facilitation_methods],
+        ['Activity facilitators (titles)', report.facilitators || filedBy],
+        ['Topics covered', report.topics_covered],
+        ['Commodities distributed', report.commodities_distributed],
+        ['Male reached', report.male_reached],
+        ['Female reached', report.female_reached],
+        ['Total people reached', report.total_reached],
+        ['Reach remarks', report.remarks],
+        ['Total activity expenditure (KES)', report.expenditure || report.budget]
+    ];
 
-  // Gawanya maelezo makubwa kupitia namba za vifungu (Mfano: 1. Introduction, 2. Objectives, n.k.)
-  // Hii inatenganisha ripoti kuwa sehemu/sessions huru zenye mpangilio safi
-
-  return `
-    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
-      <!-- Report Header -->
-      <div class="border-bottom pb-3 mb-4">
-        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
-          ${report.type || 'Activity Report'}
-        </span>
-        <h3 class="fw-bold text-dark mb-2">${report.title}</h3>
-        <div class="d-flex flex-wrap gap-3 text-muted small">
-          <span>📅 <strong>Tarehe:</strong> ${report.date_filed || report.activity_date}</span>
-          <span>👥 <strong>Walioshiriki:</strong> ${report.participants || 'N/A'}</span>
-          <span>✍️ <strong>Imetolewa na:</strong> ${report.filed_by || 'MRT Team'}</span>
-        </div>
-      </div>
-
-      <!-- Structured Activity Sessions / Sections -->
-      <div class="report-body text-secondary" style="line-height: 1.8; font-size: 0.95rem;">
-        ${formatReportIntoSessions(rawDesc)}
-      </div>
-    </div>
-  `;
-}
-
-// Kazi inayopangilia maneno kuwa Sessions na Paragrafu nadhifu
-function formatReportIntoSessions(text) {
-  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
-
-  // Badilisha vichwa vya habari vya namba kuwa Cards/Sections tofauti
-  let formatted = text
-    // 1. Introduction
-    .replace(/1\.\s+Introduction/gi, '<div class="p-3 mb-3 bg-light rounded-3 border-start border-primary border-4"><h5 class="fw-bold text-dark mb-2">1. Introduction</h5>')
-    // 2. Objectives
-    .replace(/2\.\s+Objectives/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-success border-4"><h5 class="fw-bold text-dark mb-2">2. Objectives of the Training</h5>')
-    // 3. Topics Covered
-    .replace(/3\.\s+Topics\s+Covered/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-warning border-4"><h5 class="fw-bold text-dark mb-2">3. Topics Covered</h5>')
-    // 3.1, 3.2, 3.3, 3.4 Subsections
-    .replace(/3\.1\s+/g, '<h6 class="fw-bold text-primary mt-3">3.1 ')
-    .replace(/3\.2\s+/g, '<h6 class="fw-bold text-primary mt-3">3.2 ')
-    .replace(/3\.3\s+/g, '<h6 class="fw-bold text-primary mt-3">3.3 ')
-    .replace(/3\.4\s+/g, '<h6 class="fw-bold text-primary mt-3">3.4 ')
-    // 4. Key Lessons Learned
-    .replace(/4\.\s+Key\s+Lessons/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-info border-4"><h5 class="fw-bold text-dark mb-2">4. Key Lessons Learned</h5>')
-    // 5. Relevance
-    .replace(/5\.\s+Relevance/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-danger border-4"><h5 class="fw-bold text-dark mb-2">5. Relevance to MRT</h5>')
-    // 6. Recommendations
-    .replace(/6\.\s+Recommendations/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-secondary border-4"><h5 class="fw-bold text-dark mb-2">6. Recommendations</h5>')
-    // Funga div ya mwisho
-    + '</div>';
-
-  // Rekebisha alama za bullet (-) ziwe kwenye muonekano wa orodha safi
-  formatted = formatted.replace(/-\s+([^\.]+)(\.)?/g, '<li class="mb-1 text-muted">$1$2</li>');
-
-  return formatted;
-}
-function renderStructuredReport(report) {
-  const rawDesc = report.description || "";
-
-  return `
-    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
-      <!-- Report Header -->
-      <div class="border-bottom pb-3 mb-4">
-        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
-          ${report.type || 'Activity Report'}
-        </span>
-        <h3 class="fw-bold text-dark mb-2">${report.title}</h3>
-        <div class="d-flex flex-wrap gap-3 text-muted small">
-          <span>📅 <strong>Tarehe:</strong> ${report.date_filed || report.activity_date || 'N/A'}</span>
-          <span>👥 <strong>Walioshiriki:</strong> ${report.participants || 'N/A'}</span>
-          <span>✍️ <strong>Imetolewa na:</strong> ${report.filed_by || 'MRT Team'}</span>
-        </div>
-      </div>
-
-      <!-- Structured Activity Sessions & Spacing -->
-      <div class="report-body text-secondary" style="line-height: 1.8; font-size: 0.95rem;">
-        ${formatReportIntoCleanSessions(rawDesc)}
-      </div>
-    </div>
-  `;
-}
-
-// Kazi ya kusafisha na kupangilia maandishi ya ripoti kuwa Sessions zilizotulia
-function formatReportIntoCleanSessions(text) {
-  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
-
-  // Safisha nafasi zilizopitiliza na uandae muundo
-  let formatted = text.trim();
-
-  // 1. Gawanya na kuweka kwenye Cards tofauti kwa kila Sehemu kuu (Mfano: 1., 2., 3., 4., 5., 6.)
-  formatted = formatted.replace(
-    /(\b[1-9]\.\s+[A-Z][a-zA-Z\s\-]+)/g, 
-    '</div><div class="p-3 mb-3 bg-light rounded-4 border-start border-primary border-4 shadow-sm"><h5 class="fw-bold text-dark mb-2">📌 $1</h5>'
-  );
-
-  // 2. Weka vichwa vidogo kwa ajili ya vijisehemu (Mfano: 3.1, 3.2, n.k.)
-  formatted = formatted.replace(
-    /(\b[0-9]+\.[0-9]+\s+[A-Za-z\s\-]+)/g, 
-    '<h6 class="fw-bold text-primary mt-3 mb-2">🔹 $1</h6>'
-  );
-
-  // 3. Geuza alama za dashi (-) ziwe kwenye muonekano wa orodha safi (bullet points) yenye nafasi
-  formatted = formatted.replace(
-    /-\s+([^-\n]+)/g, 
-    '<li class="text-secondary mb-2" style="list-style-type: disc; margin-left: 20px;">$1</li>'
-  );
-
-  // Funga div ya kwanza iliyofunguliwa
-  return '<div class="p-3 mb-3 bg-light rounded-4 border-start border-primary border-4 shadow-sm">' + formatted + '</div>';
-}
-
-function renderStructuredReport(report) {
-  const rawDesc = report.description || "";
-
-  return `
-    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
-      <!-- Report Header -->
-      <div class="border-bottom pb-3 mb-4">
-        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
-          ${report.type || 'Activity Report'}
-        </span>
-        <h3 class="fw-bold text-dark mb-2">${report.title}</h3>
-        <div class="d-flex flex-wrap gap-3 text-muted small">
-          <span>📅 <strong>Tarehe:</strong> ${report.date_filed || report.activity_date || 'N/A'}</span>
-          <span>👥 <strong>Walioshiriki:</strong> ${report.participants || 'N/A'}</span>
-          <span>✍️ <strong>Imetolewa na:</strong> ${report.filed_by || 'MRT Team'}</span>
-        </div>
-      </div>
-
-      <!-- Structured Activity Sessions & Spacing -->
-      <div class="report-body text-secondary">
-        ${formatReportIntoCleanSessions(rawDesc)}
-      </div>
-    </div>
-  `;
+    return `
+        <article class="report-preview">
+            <header class="report-preview-header">
+                <p>${escapeReportHtml(report.type || 'Activity Report')}</p>
+                <h2>${escapeReportHtml(activityTitle)}</h2>
+                <div>Date filed: ${escapeReportHtml(dateFiled)} · Filed by: ${escapeReportHtml(filedBy)}</div>
+            </header>
+            <h3>Official activity metadata</h3>
+            <div class="report-preview-table"><table><tbody>
+                ${metadata.map(([label, value]) => `<tr><th>${escapeReportHtml(label)}</th><td>${escapeReportHtml(value || 'Not provided')}</td></tr>`).join('')}
+            </tbody></table></div>
+            <h3>Activity proceedings</h3>
+            <div class="report-preview-sessions">${formatReportIntoCleanSessions(report.description)}</div>
+        </article>
+    `;
 }
 
 function formatReportIntoCleanSessions(text) {
-  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
+    const cleanText = String(text || '').replace(/^Description:\s*/i, '').trim();
+    if (!cleanText) return '<p>No additional details provided.</p>';
 
-  let cleanText = text.replace(/^Description:\s*/i, '').trim();
+    const headings = {
+        1: /^Introduction$/i,
+        2: /^Objectives(?:\s+of\s+the\s+Training)?$/i,
+        3: /^Topics\s+Covered$/i,
+        4: /^Key\s+Lessons(?:\s+Learned)?$/i,
+        5: /^Relevance(?:\s+to\s+Miritini\s+Response\s+Team|\s+to\s+MRT)?$/i,
+        6: /^Recommendations$/i
+    };
+    const titles = {
+        1: '1. Introduction',
+        2: '2. Objectives',
+        3: '3. Topics Covered',
+        4: '4. Key Lessons Learned',
+        5: '5. Relevance to Miritini Response Team',
+        6: '6. Recommendations'
+    };
+    const sections = [];
+    let current = { title: 'Report details', lines: [] };
 
-  // 1. Weka alama za kipekee kwenye vichwa vikuu ili kuzuia kugongana na namba za ndani
-  let formatted = cleanText
-    .replace(/1\.\s+Introduction/g, '---SECTION_1---')
-    .replace(/2\.\s+Objectives(?:\s+of\s+the\s+Training)?/g, '---SECTION_2---')
-    .replace(/3\.\s+Topics\s+Covered/g, '---SECTION_3---')
-    .replace(/4\.\s+Key\s+Lessons(?:\s+Learned)?/g, '---SECTION_4---')
-    .replace(/5\.\s+Relevance(?:\s+to[^\.]+?)?(?=\s+6\.|$)/g, '---SECTION_5---')
-    .replace(/6\.\s+Recommendations/g, '---SECTION_6---');
+    cleanText.split(/\r?\n/).forEach(line => {
+        const match = line.trim().match(/^([1-6])\.\s+(.+)$/);
+        const number = match ? Number(match[1]) : 0;
+        if (match && headings[number].test(match[2].trim())) {
+            if (current.lines.length || current.title !== 'Report details') sections.push(current);
+            current = { title: titles[number], lines: [] };
+        } else {
+            current.lines.push(line);
+        }
+    });
+    sections.push(current);
 
-  let parts = formatted.split('---SECTION_');
-  let html = '';
+    return sections.map(section => {
+        const lines = [];
+        let bullets = [];
+        const flushBullets = () => {
+            if (!bullets.length) return;
+            lines.push(`<ul>${bullets.map(item => `<li>${escapeReportHtml(item)}</li>`).join('')}</ul>`);
+            bullets = [];
+        };
 
-  let titles = {
-    '1': '1. Introduction',
-    '2': '2. Objectives of the Training',
-    '3': '3. Topics Covered',
-    '4': '4. Key Lessons Learned',
-    '5': '5. Relevance to Miritini Response Team',
-    '6': '6. Recommendations'
-  };
+        section.lines.forEach(line => {
+            const value = line.trim();
+            if (!value) {
+                flushBullets();
+                return;
+            }
+            const bullet = value.match(/^[-•]\s+(.+)$/);
+            const subsection = value.match(/^(3\.[1-4])\s+(.+)$/);
+            if (bullet) bullets.push(bullet[1]);
+            else {
+                flushBullets();
+                lines.push(subsection
+                    ? `<h4>${escapeReportHtml(`${subsection[1]} ${subsection[2]}`)}</h4>`
+                    : `<p>${escapeReportHtml(value)}</p>`);
+            }
+        });
+        flushBullets();
 
-  let colors = {
-    '1': 'border-primary',
-    '2': 'border-success',
-    '3': 'border-warning',
-    '4': 'border-info',
-    '5': 'border-danger',
-    '6': 'border-secondary'
-  };
+        return `<section class="report-session"><h3>${escapeReportHtml(section.title)}</h3>${lines.join('') || '<p>No details provided.</p>'}</section>`;
+    }).join('');
+}
 
-  parts.forEach(part => {
-    if (!part.trim()) return;
-    let sectionNum = part.charAt(0);
-    let sectionContent = part.substring(2).trim();
-
-    // 2. Safisha vijisehemu (3.1, 3.2, n.k.) na uweke alama za bullet kwa usahihi
-    sectionContent = sectionContent
-      .replace(/(3\.[1-4]\s+[A-Za-z\s]+)/g, '<br><strong class="text-primary mt-2 d-inline-block">$1</strong>')
-      .replace(/-\s+/g, '<br>&bull; ');
-
-    if (titles[sectionNum]) {
-      html += `
-        <div class="p-3 mb-3 bg-light rounded-4 border-start ${colors[sectionNum]} border-4 shadow-sm">
-          <h5 class="fw-bold text-dark mb-2">📌 ${titles[sectionNum]}</h5>
-          <p class="text-secondary mb-0" style="line-height: 1.8; white-space: pre-line;">${sectionContent}</p>
-        </div>
-      `;
-    } else {
-      html += `<p class="text-secondary" style="line-height: 1.8;">${part}</p>`;
+function viewStructuredReport(id) {
+    const report = (JSON.parse(localStorage.getItem(REPORTS_STORAGE_KEY)) || [])
+        .find(item => String(item.id) === String(id));
+    if (!report) {
+        alert('Report record not found.');
+        return;
     }
-  });
 
-  return html || `<p class="text-secondary" style="line-height: 1.8;">${cleanText}</p>`;
-}
-function renderStructuredReport(report) {
-  const rawDesc = report.description || "";
-
-  return `
-    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
-      <!-- Report Header -->
-      <div class="border-bottom pb-3 mb-4">
-        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
-          ${report.type || 'Activity Report'}
-        </span>
-        <h3 class="fw-bold text-dark mb-2">${report.title || report.activity_name || 'Activity Report'}</h3>
-        <div class="d-flex flex-wrap gap-3 text-muted small">
-          <span>📅 <strong>Date Filed:</strong> ${report.date_filed || 'N/A'}</span>
-          <span>✍️ <strong>Filed By:</strong> ${report.filed_by || 'MRT Team'}</span>
-        </div>
-      </div>
-
-      <!-- Official Activity Metadata Table -->
-      <div class="table-responsive mb-4">
-        <table class="table table-bordered align-middle text-secondary mb-0" style="font-size: 0.9rem;">
-          <tbody>
-            <tr>
-              <th class="bg-light text-dark w-25">Activity name</th>
-              <td>${report.activity_name || report.title || 'N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Date of activity</th>
-              <td>${report.activity_date || report.date_filed || 'N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Duration (hours)</th>
-              <td>${report.duration || 'N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Facilitation methods used</th>
-              <td>${report.facilitation_methods || 'N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Activity facilitators (Titles)</th>
-              <td>${report.facilitators || report.filed_by || 'N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Topics covered</th>
-              <td>${report.topics_covered || 'N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Commodities distributed</th>
-              <td>${report.commodities_distributed || 'None / N/A'}</td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Number of people reached</th>
-              <td>
-                <div class="row g-2">
-                  <div class="col-4"><strong>Male:</strong> ${report.male_reached || '0'}</div>
-                  <div class="col-4"><strong>Female:</strong> ${report.female_reached || '0'}</div>
-                  <div class="col-4"><strong>Total:</strong> ${report.total_reached || '0'}</div>
-                </div>
-                ${report.remarks ? `<div class="mt-1 text-muted small"><strong>Remarks:</strong> ${report.remarks}</div>` : ''}
-              </td>
-            </tr>
-            <tr>
-              <th class="bg-light text-dark">Total activity expenditure</th>
-              <td>${report.expenditure || 'KES 0'}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Detailed Proceedings / Sessions -->
-      <h5 class="fw-bold text-dark mb-3">ACTIVITY PROCEEDINGS (Detailed write-up)</h5>
-      <div class="report-body text-secondary">
-        ${formatReportIntoCleanSessions(rawDesc)}
-      </div>
-    </div>
-  `;
-}
-
-function formatReportIntoCleanSessions(text) {
-  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
-  
-  let cleanText = text.replace(/^Description:\s*/i, '').trim();
-
-  let formatted = cleanText
-    .replace(/1\.\s+Introduction/g, '---SECTION_1---')
-    .replace(/2\.\s+Objectives(?:\s+of\s+the\s+Training)?/g, '---SECTION_2---')
-    .replace(/3\.\s+Topics\s+Covered/g, '---SECTION_3---')
-    .replace(/4\.\s+Key\s+Lessons(?:\s+Learned)?/g, '---SECTION_4---')
-    .replace(/5\.\s+Relevance(?:\s+to[^\.]+?)?(?=\s+6\.|$)/g, '---SECTION_5---')
-    .replace(/6\.\s+Recommendations/g, '---SECTION_6---');
-
-  let parts = formatted.split('---SECTION_');
-  let html = '';
-
-  let titles = {
-    '1': '1. Introduction',
-    '2': '2. Objectives',
-    '3': '3. Topics Covered',
-    '4': '4. Key Lessons Learned',
-    '5': '5. Relevance to Miritini Response Team',
-    '6': '6. Recommendations'
-  };
-
-  let colors = {
-    '1': 'border-primary',
-    '2': 'border-success',
-    '3': 'border-warning',
-    '4': 'border-info',
-    '5': 'border-danger',
-    '6': 'border-secondary'
-  };
-
-  parts.forEach(part => {
-    if (!part.trim()) return;
-    let sectionNum = part.charAt(0);
-    let sectionContent = part.substring(2).trim();
-
-    sectionContent = sectionContent
-      .replace(/(3\.[1-4]\s+[A-Za-z\s]+)/g, '<br><strong class="text-primary mt-2 d-inline-block">$1</strong>')
-      .replace(/-\s+/g, '<br>&bull; ');
-
-    if (titles[sectionNum]) {
-      html += `
-        <div class="p-3 mb-3 bg-light rounded-4 border-start ${colors[sectionNum]} border-4 shadow-sm">
-          <h5 class="fw-bold text-dark mb-2">📌 ${titles[sectionNum]}</h5>
-          <p class="text-secondary mb-0" style="line-height: 1.8; white-space: pre-line;">${sectionContent}</p>
-        </div>
-      `;
-    }
-  });
-
-  return html || `<p class="text-secondary" style="line-height: 1.8;">${cleanText}</p>`;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'report-preview-dialog';
+    dialog.innerHTML = `
+        <style>
+            .report-preview-dialog { width: min(900px, calc(100% - 24px)); max-height: 90vh; padding: 24px; border: 0; border-radius: 14px; box-shadow: 0 16px 48px #0003; color: #30283a; }
+            .report-preview-dialog::backdrop { background: #17121dbb; }
+            .report-preview-dialog button { float: right; border: 0; border-radius: 7px; padding: 8px 12px; color: #fff; background: #5c2d91; cursor: pointer; }
+            .report-preview-header { margin: 20px 0; padding-bottom: 16px; border-bottom: 1px solid #ddd; }
+            .report-preview-header p { color: #5c2d91; font-weight: 700; }
+            .report-preview-table { overflow-x: auto; }
+            .report-preview-table table { width: 100%; border-collapse: collapse; }
+            .report-preview-table th, .report-preview-table td { padding: 9px; border: 1px solid #ddd; text-align: left; vertical-align: top; }
+            .report-preview-table th { width: 35%; background: #f6f3f8; }
+            .report-session { margin: 12px 0; padding: 14px; border: 1px solid #e7e1ed; border-left: 4px solid #7950a1; border-radius: 8px; }
+            .report-session h3 { margin-top: 0; color: #4a2673; }
+            .report-session h4 { color: #5c2d91; }
+            .report-session p { white-space: pre-wrap; }
+        </style>
+        <button type="button" data-report-close>Close</button>
+        ${renderStructuredReport(report)}
+    `;
+    dialog.querySelector('[data-report-close]').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    document.body.append(dialog);
+    dialog.showModal();
 }

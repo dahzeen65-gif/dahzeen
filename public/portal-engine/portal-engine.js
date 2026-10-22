@@ -270,6 +270,28 @@ function formatReportSessions(text) {
     }).join('');
 }
 
+function renderActivityReportMetadata(report) {
+    const metadata = [
+        ['Activity name', report.activity_name || report.title],
+        ['Date of activity', report.activity_date || report.actDate],
+        ['Duration (hours)', report.duration],
+        ['Facilitation methods used', report.facilitation_methods],
+        ['Activity facilitators (titles)', report.facilitators || report.filedBy],
+        ['Topics covered', report.topics_covered],
+        ['Commodities distributed', report.commodities_distributed],
+        ['Participants', report.participants],
+        ['Male reached', report.male_reached],
+        ['Female reached', report.female_reached],
+        ['Total people reached', report.total_reached],
+        ['Reach remarks', report.remarks],
+        ['Total activity expenditure (KES)', report.expenditure || report.budget]
+    ];
+
+    return `<div class="report-metadata-table"><table><tbody>${metadata.map(([label, value]) => `
+        <tr><th>${escapeMinuteHtml(label)}</th><td>${escapeMinuteHtml(value || 'Not provided')}</td></tr>
+    `).join('')}</tbody></table></div>`;
+}
+
 function getMinuteAttachments(record) {
     return record.attachments?.length
         ? record.attachments
@@ -1020,6 +1042,38 @@ function toggleReportForm(type) {
                 <input type="date" id="actDate" required>
             </div>
             <div class="form-group">
+                <label for="actDuration">Duration (hours)</label>
+                <input type="number" id="actDuration" min="0" step="0.5">
+            </div>
+            <div class="form-group">
+                <label for="actMethods">Facilitation Methods Used</label>
+                <input type="text" id="actMethods">
+            </div>
+            <div class="form-group">
+                <label for="actFacilitators">Activity Facilitators (Titles)</label>
+                <input type="text" id="actFacilitators">
+            </div>
+            <div class="form-group">
+                <label for="actTopics">Topics Covered</label>
+                <textarea id="actTopics" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="actCommodities">Commodities Distributed</label>
+                <textarea id="actCommodities" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Number of People Reached</label>
+                <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;">
+                    <input type="number" id="actMaleReached" min="0" placeholder="Male">
+                    <input type="number" id="actFemaleReached" min="0" placeholder="Female">
+                    <input type="number" id="actTotalReached" min="0" placeholder="Total">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="actRemarks">Reach Remarks</label>
+                <textarea id="actRemarks" rows="2"></textarea>
+            </div>
+            <div class="form-group">
                 <label for="actParticipants">Number of Participants</label>
                 <input type="number" id="actParticipants" placeholder="e.g., 25" min="0">
             </div>
@@ -1030,6 +1084,10 @@ function toggleReportForm(type) {
             <div class="form-group">
                 <label for="actBudget">Budget Used (KES)</label>
                 <input type="number" id="actBudget" placeholder="e.g., 5000" min="0" step="100">
+            </div>
+            <div class="form-group">
+                <label for="actExpenditure">Total Activity Expenditure (KES)</label>
+                <input type="number" id="actExpenditure" min="0" step="0.01">
             </div>
             <div class="form-group">
                 <label for="reportPhoto">Attach Files (optional, up to 10 files / 8 MB total)</label>
@@ -1119,9 +1177,21 @@ async function handleReportFormSubmission(e) {
         reportObject.title = document.getElementById("actName")?.value || '';
         reportObject.filedBy = document.getElementById("actLead")?.value || '';
         reportObject.actDate = document.getElementById("actDate")?.value || '';
+        reportObject.activity_name = reportObject.title;
+        reportObject.activity_date = reportObject.actDate;
+        reportObject.duration = document.getElementById("actDuration")?.value || '';
+        reportObject.facilitation_methods = document.getElementById("actMethods")?.value || '';
+        reportObject.facilitators = document.getElementById("actFacilitators")?.value || '';
+        reportObject.topics_covered = document.getElementById("actTopics")?.value || '';
+        reportObject.commodities_distributed = document.getElementById("actCommodities")?.value || '';
+        reportObject.male_reached = document.getElementById("actMaleReached")?.value || '';
+        reportObject.female_reached = document.getElementById("actFemaleReached")?.value || '';
+        reportObject.total_reached = document.getElementById("actTotalReached")?.value || '';
+        reportObject.remarks = document.getElementById("actRemarks")?.value || '';
         reportObject.participants = document.getElementById("actParticipants")?.value || '';
         reportObject.description = document.getElementById("actDescription")?.value || '';
         reportObject.budget = document.getElementById("actBudget")?.value || '';
+        reportObject.expenditure = document.getElementById("actExpenditure")?.value || '';
     } else {
         const incType = document.getElementById("incType")?.value || '';
         const incLoc = document.getElementById("incLoc")?.value || '';
@@ -1262,6 +1332,14 @@ function printReports() {
                 .report-session p { margin: 0 0 8px; white-space: pre-wrap; }
                 .report-session p:last-child { margin-bottom: 0; }
                 .report-session ul { margin: 0; padding-left: 22px; }
+                .report-metadata-table table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+                .report-metadata-table th, .report-metadata-table td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+                .report-metadata-table th { width: 34%; background: #f2f2f2; }
+                .report-session { margin: 12px 0; padding: 12px 14px; border: 1px solid #e8e1ef; border-left: 4px solid #7950a1; border-radius: 8px; background: #fff; break-inside: avoid; }
+                .report-session h3 { margin: 0 0 8px; color: #4a2673; font-size: 16px; }
+                .report-session p { margin: 0 0 8px; white-space: pre-wrap; }
+                .report-session p:last-child { margin-bottom: 0; }
+                .report-session ul { margin: 0; padding-left: 22px; }
                 @media print {
                     body { margin: 0; }
                 }
@@ -1312,8 +1390,7 @@ function printReports() {
         
         if (reportType.includes('Activity')) {
             htmlContent += `<p><strong>Activity Date:</strong> ${escapeMinuteHtml(r.actDate)}</p>`;
-            htmlContent += `<p><strong>Participants:</strong> ${escapeMinuteHtml(r.participants)}</p>`;
-            htmlContent += `<p><strong>Budget:</strong> KES ${escapeMinuteHtml(r.budget)}</p>`;
+            htmlContent += renderActivityReportMetadata(r);
             htmlContent += `<h4>Description and sessions</h4>${formatReportSessions(r.description)}`;
         } else {
             htmlContent += `<p><strong>Incident Type:</strong> ${escapeMinuteHtml(r.incType)}</p>`;
@@ -2426,6 +2503,10 @@ function openMrtDocumentView(title, subtitle, sections, attachments = [], autoPr
                 .report-session p:last-child { margin-bottom: 0; }
                 .report-session ul { margin: 0; padding-left: 22px; }
                 .report-session-empty { margin: 0; }
+                .report-metadata-table { overflow-x: auto; }
+                .report-metadata-table table { width: 100%; border-collapse: collapse; }
+                .report-metadata-table th, .report-metadata-table td { padding: 9px 11px; border: 1px solid #e6e0eb; text-align: left; vertical-align: top; }
+                .report-metadata-table th { width: 34%; background: #f7f4fa; color: #4a2673; }
                 .attachment-list { display: grid; gap: 8px; }
                 .attachment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px; border: 1px solid #e9e5ed; border-radius: 8px; }
                 .attachment-row span { flex: 1 1 220px; overflow-wrap: anywhere; }
@@ -2482,6 +2563,7 @@ function viewReportDocument(id) {
     ];
     const sections = [
         { title: 'Report information', content: details.join('\n') },
+        ...(isActivity ? [{ title: 'Official activity metadata', html: renderActivityReportMetadata(report) }] : []),
         { title: 'Description and sessions', html: formatReportSessions(report.description) }
     ];
 

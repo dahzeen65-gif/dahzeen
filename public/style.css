@@ -2991,7 +2991,7 @@ img {
   min-height: 320px;
   border: 0;
   border-radius: 0;
-  background: #0f172a;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -3025,7 +3025,7 @@ img {
   justify-content: center;
   overflow: hidden;
   border-radius: 0;
-  background-color: #0f172a;
+  background-color: transparent;
 }
 
 .gallery-carousel-slide img,

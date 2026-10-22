@@ -185,3 +185,57 @@ function formatReportIntoSessions(text) {
 
   return formatted;
 }
+function renderStructuredReport(report) {
+  const rawDesc = report.description || "";
+
+  return `
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+      <!-- Report Header -->
+      <div class="border-bottom pb-3 mb-4">
+        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
+          ${report.type || 'Activity Report'}
+        </span>
+        <h3 class="fw-bold text-dark mb-2">${report.title}</h3>
+        <div class="d-flex flex-wrap gap-3 text-muted small">
+          <span>📅 <strong>Tarehe:</strong> ${report.date_filed || report.activity_date || 'N/A'}</span>
+          <span>👥 <strong>Walioshiriki:</strong> ${report.participants || 'N/A'}</span>
+          <span>✍️ <strong>Imetolewa na:</strong> ${report.filed_by || 'MRT Team'}</span>
+        </div>
+      </div>
+
+      <!-- Structured Activity Sessions & Spacing -->
+      <div class="report-body text-secondary" style="line-height: 1.8; font-size: 0.95rem;">
+        ${formatReportIntoCleanSessions(rawDesc)}
+      </div>
+    </div>
+  `;
+}
+
+// Kazi ya kusafisha na kupangilia maandishi ya ripoti kuwa Sessions zilizotulia
+function formatReportIntoCleanSessions(text) {
+  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
+
+  // Safisha nafasi zilizopitiliza na uandae muundo
+  let formatted = text.trim();
+
+  // 1. Gawanya na kuweka kwenye Cards tofauti kwa kila Sehemu kuu (Mfano: 1., 2., 3., 4., 5., 6.)
+  formatted = formatted.replace(
+    /(\b[1-9]\.\s+[A-Z][a-zA-Z\s\-]+)/g, 
+    '</div><div class="p-3 mb-3 bg-light rounded-4 border-start border-primary border-4 shadow-sm"><h5 class="fw-bold text-dark mb-2">📌 $1</h5>'
+  );
+
+  // 2. Weka vichwa vidogo kwa ajili ya vijisehemu (Mfano: 3.1, 3.2, n.k.)
+  formatted = formatted.replace(
+    /(\b[0-9]+\.[0-9]+\s+[A-Za-z\s\-]+)/g, 
+    '<h6 class="fw-bold text-primary mt-3 mb-2">🔹 $1</h6>'
+  );
+
+  // 3. Geuza alama za dashi (-) ziwe kwenye muonekano wa orodha safi (bullet points) yenye nafasi
+  formatted = formatted.replace(
+    /-\s+([^-\n]+)/g, 
+    '<li class="text-secondary mb-2" style="list-style-type: disc; margin-left: 20px;">$1</li>'
+  );
+
+  // Funga div ya kwanza iliyofunguliwa
+  return '<div class="p-3 mb-3 bg-light rounded-4 border-start border-primary border-4 shadow-sm">' + formatted + '</div>';
+}

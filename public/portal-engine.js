@@ -3092,3 +3092,72 @@ async function sendPasswordEmail(recipientEmail, recipientName, token) {
     alert("Failed to send email: " + (err.text || err.message));
   }
 }
+
+async function uploadGalleryImage(e) {
+  e.preventDefault();
+
+  const title = document.getElementById('gallery-title').value.trim();
+  const description = document.getElementById('gallery-desc').value.trim();
+  const fileInput = document.getElementById('gallery-file');
+  const files = fileInput.files;
+
+  if (!files || files.length === 0) {
+    alert("Tafadhali chagua angalau picha moja.");
+    return;
+  }
+
+  const btn = document.getElementById('btn-upload-img');
+  btn.disabled = true;
+  btn.innerText = `Ina-upload picha (${files.length})...`;
+
+  try {
+    // Pitia kila picha iliyochaguliwa moja baada ya nyingine
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `mrt_gallery_${Date.now()}_${i}.${fileExt}`;
+      const filePath = `slideshow/${fileName}`;
+
+      // 1. Upload picha kwenye Supabase Storage
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('gallery-photos')
+        .upload(filePath, file);
+
+      if (storageError) throw storageError;
+
+      // 2. Pata Public URL ya picha
+      const { data: urlData } = supabase.storage
+        .from('gallery-photos')
+        .getPublicUrl(filePath);
+
+      const imageUrl = urlData.publicUrl;
+
+      // Kama umechagua picha nyingi, unaweza kuongeza namba pembeni ya title (mfano: Tukio (1), Tukio (2))
+      const imgTitle = files.length > 1 ? `${title} (${i + 1})` : title;
+
+      // 3. Hifadhi taarifa kwenye Database Table ya 'gallery'
+      const { error: dbError } = await supabase
+        .from('gallery')
+        .insert([
+          {
+            title: imgTitle,
+            description: description,
+            image_url: imageUrl,
+            created_at: new Date()
+          }
+        ]);
+
+      if (dbError) throw dbError;
+    }
+
+    alert(`🎉 Picha ${files.length} zimefanikiwa kuongezwa kwenye Slideshow!`);
+    document.getElementById('admin-upload-gallery-form').reset();
+
+  } catch (err) {
+    console.error("Upload Error:", err);
+    alert("❌ Imefeli ku-upload picha: " + (err.message || err));
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "📤 Upload & Ongeza kwenye Slideshow";
+  }
+}

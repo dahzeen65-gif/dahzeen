@@ -143,6 +143,61 @@ function escapeGalleryText(value) {
     })[character]);
 }
 
+function createMrtPrintBranding(title, subtitle) {
+    const logoUrl = new URL('../images/mrt-logo.jpg', window.location.href).href;
+    return {
+        styles: `
+            .mrt-print-watermark {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                z-index: 0;
+                width: min(70vw, 440px);
+                height: min(70vw, 440px);
+                object-fit: contain;
+                opacity: 0.045;
+                pointer-events: none;
+                transform: translate(-50%, -50%);
+            }
+            .mrt-print-content { position: relative; z-index: 1; }
+            .mrt-print-header {
+                position: relative;
+                display: flex;
+                min-height: 100px;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 24px;
+                padding: 0 112px 16px;
+                border-bottom: 2px solid #5c2d91;
+                text-align: center;
+            }
+            .mrt-print-header img {
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 88px;
+                height: 88px;
+                object-fit: contain;
+            }
+            .mrt-print-header h1 { margin: 0; color: #33204d; font-size: 22px; }
+            .mrt-print-header p { margin: 6px 0 0; color: #5f5968; font-size: 12px; font-weight: 600; }
+            @media print {
+                * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+        `,
+        watermark: `<img class="mrt-print-watermark" src="${escapeGalleryText(logoUrl)}" alt="" aria-hidden="true">`,
+        header: `
+            <header class="mrt-print-header">
+                <img src="${escapeGalleryText(logoUrl)}" alt="MRT logo">
+                <div>
+                    <h1>${escapeGalleryText(title)}</h1>
+                    <p>${escapeGalleryText(subtitle)}</p>
+                </div>
+            </header>
+        `
+    };
+}
+
 function safeGalleryUrl(value) {
     const url = String(value || '');
     return /^(https?:\/\/|\/|\.\/|\.\.\/|images\/|data:(image|video)\/)/i.test(url) ? url : '';
@@ -1362,6 +1417,7 @@ function downloadReportsAsCSV() {
 function printReports() {
     const printWindow = window.open('', '', 'width=900,height=600');
     const reports = getReports();
+    const branding = createMrtPrintBranding('MRT Reports Registry', 'Official Reports Register');
     
     let htmlContent = `
         <!DOCTYPE html>
@@ -1379,10 +1435,13 @@ function printReports() {
                 @media print {
                     body { margin: 0; }
                 }
+                ${branding.styles}
             </style>
         </head>
         <body>
-            <h1>MRT Reports Registry</h1>
+            ${branding.watermark}
+            <main class="mrt-print-content">
+            ${branding.header}
             <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
             <table>
                 <thead>
@@ -1399,10 +1458,10 @@ function printReports() {
     reports.forEach(r => {
         htmlContent += `
             <tr>
-                <td>${r.dateFiled}</td>
-                <td>${r.type}</td>
-                <td>${r.title}</td>
-                <td>${r.filedBy}</td>
+                <td>${escapeGalleryText(r.dateFiled)}</td>
+                <td>${escapeGalleryText(r.type)}</td>
+                <td>${escapeGalleryText(r.title)}</td>
+                <td>${escapeGalleryText(r.filedBy)}</td>
             </tr>
         `;
     });
@@ -1414,31 +1473,33 @@ function printReports() {
     `;
 
     reports.forEach(r => {
+        const reportType = String(r.type || '');
         htmlContent += `<div class="report-detail">`;
-        htmlContent += `<h3>${r.title}</h3>`;
-        htmlContent += `<p><strong>Type:</strong> ${r.type}</p>`;
-        htmlContent += `<p><strong>Date Filed:</strong> ${r.dateFiled}</p>`;
-        htmlContent += `<p><strong>Filed By:</strong> ${r.filedBy}</p>`;
+        htmlContent += `<h3>${escapeGalleryText(r.title)}</h3>`;
+        htmlContent += `<p><strong>Type:</strong> ${escapeGalleryText(reportType)}</p>`;
+        htmlContent += `<p><strong>Date Filed:</strong> ${escapeGalleryText(r.dateFiled)}</p>`;
+        htmlContent += `<p><strong>Filed By:</strong> ${escapeGalleryText(r.filedBy)}</p>`;
         
-        if (r.type.includes('Activity')) {
-            htmlContent += `<p><strong>Activity Date:</strong> ${r.actDate}</p>`;
-            htmlContent += `<p><strong>Participants:</strong> ${r.participants}</p>`;
-            htmlContent += `<p><strong>Budget:</strong> KES ${r.budget}</p>`;
-            htmlContent += `<p><strong>Description:</strong> ${r.description}</p>`;
+        if (reportType.includes('Activity')) {
+            htmlContent += `<p><strong>Activity Date:</strong> ${escapeGalleryText(r.actDate)}</p>`;
+            htmlContent += `<p><strong>Participants:</strong> ${escapeGalleryText(r.participants)}</p>`;
+            htmlContent += `<p><strong>Budget:</strong> KES ${escapeGalleryText(r.budget)}</p>`;
+            htmlContent += `<p><strong>Description:</strong> ${escapeGalleryText(r.description)}</p>`;
         } else {
-            htmlContent += `<p><strong>Incident Type:</strong> ${r.incType}</p>`;
-            htmlContent += `<p><strong>Location:</strong> ${r.incLoc}</p>`;
-            htmlContent += `<p><strong>Date & Time:</strong> ${r.incDate}</p>`;
-            htmlContent += `<p><strong>Description:</strong> ${r.description}</p>`;
-            htmlContent += `<p><strong>Injuries:</strong> ${r.injuries || 'None reported'}</p>`;
-            htmlContent += `<p><strong>Damage:</strong> ${r.damage || 'None reported'}</p>`;
-            htmlContent += `<p><strong>Actions Taken:</strong> ${r.actions}</p>`;
-            htmlContent += `<p><strong>Status:</strong> ${r.status}</p>`;
+            htmlContent += `<p><strong>Incident Type:</strong> ${escapeGalleryText(r.incType)}</p>`;
+            htmlContent += `<p><strong>Location:</strong> ${escapeGalleryText(r.incLoc)}</p>`;
+            htmlContent += `<p><strong>Date & Time:</strong> ${escapeGalleryText(r.incDate)}</p>`;
+            htmlContent += `<p><strong>Description:</strong> ${escapeGalleryText(r.description)}</p>`;
+            htmlContent += `<p><strong>Injuries:</strong> ${escapeGalleryText(r.injuries || 'None reported')}</p>`;
+            htmlContent += `<p><strong>Damage:</strong> ${escapeGalleryText(r.damage || 'None reported')}</p>`;
+            htmlContent += `<p><strong>Actions Taken:</strong> ${escapeGalleryText(r.actions)}</p>`;
+            htmlContent += `<p><strong>Status:</strong> ${escapeGalleryText(r.status)}</p>`;
         }
         htmlContent += `</div>`;
     });
 
     htmlContent += `
+            </main>
             <script>
                 window.print();
             </script>
@@ -2560,54 +2621,53 @@ function downloadMinutesPDF(id) {
 
     // Compile stylized print layout document page stream
     const pdfWindow = window.open('', '_blank', 'width=850,height=700');
+    const branding = createMrtPrintBranding('Miritini Response Team (MRT)', 'Meeting Minutes Vault');
     
     pdfWindow.document.write(`
         <html>
         <head>
-            <title>MRT_Minutes_Log_${record.id}</title>
+            <title>MRT_Minutes_Log_${escapeGalleryText(record.id)}</title>
             <style>
-                body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; margin: 50px; line-height: 1.5; }
-                .mrt-header { text-align: center; border-bottom: 2px dashed #002d62; padding-bottom: 15px; margin-bottom: 30px; }
-                .mrt-header h1 { margin: 0; color: #002d62; font-size: 22px; letter-spacing: 0.5px; }
-                .mrt-header p { margin: 5px 0 0 0; font-size: 13px; color: #555; text-transform: uppercase; font-weight: bold; }
+                body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; margin: 30px; line-height: 1.5; }
                 .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
                 .info-grid td { padding: 8px 12px; border: 1px solid #ddd; font-size: 13px; }
                 .info-grid td.meta-label { font-weight: bold; background: #f5f7fa; width: 20%; color: #002d62; }
                 .section-heading { font-size: 14px; color: #002d62; font-weight: bold; text-transform: uppercase; margin: 20px 0 8px 0; border-bottom: 1px solid #002d62; padding-bottom: 3px; }
                 .text-content-box { background: #fafbfc; border: 1px solid #e1e4e8; padding: 12px; border-radius: 4px; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; }
                 .footer { margin-top: 60px; text-align: center; font-size: 11px; color: #777; border-top: 1px solid #eee; padding-top: 8px; }
+                ${branding.styles}
             </style>
         </head>
         <body>
-            <div class="mrt-header">
-                <h1>MIRITINI RESPONSE TEAM (MRT)</h1>
-                <p>Internal Operations Operations Desk — Minutes Vault</p>
-            </div>
+            ${branding.watermark}
+            <main class="mrt-print-content">
+            ${branding.header}
 
             <table class="info-grid">
                 <tr>
                     <td class="meta-label">Log Ref ID:</td>
-                    <td>MRT-MIN-${record.id}</td>
+                    <td>MRT-MIN-${escapeGalleryText(record.id)}</td>
                     <td class="meta-label">Date & Time:</td>
-                    <td>${record.date}</td>
+                    <td>${escapeGalleryText(record.date)}</td>
                 </tr>
                 <tr>
                     <td class="meta-label">Meeting Venue:</td>
-                    <td>${record.venue}</td>
+                    <td>${escapeGalleryText(record.venue)}</td>
                     <td class="meta-label">Compiled By:</td>
-                    <td>${record.uploadedBy}</td>
+                    <td>${escapeGalleryText(record.uploadedBy)}</td>
                 </tr>
             </table>
 
             <div class="section-heading">Attendance Record</div>
-            <div class="text-content-box">${record.attendees}</div>
+            <div class="text-content-box">${escapeGalleryText(record.attendees)}</div>
 
             <div class="section-heading">Agenda & Minutes Discussion Details</div>
-            <div class="text-content-box">${record.agenda}</div>
+            <div class="text-content-box">${escapeGalleryText(record.agenda)}</div>
 
             <div class="footer">
                 This document is an authenticated copy generated from the MRT Central store vault file archive.
             </div>
+            </main>
         </body>
         </html>
     `);

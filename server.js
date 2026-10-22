@@ -21,6 +21,14 @@ const authLimiter = rateLimit({
     message: { success: false, message: 'Too many login attempts. Please wait 15 minutes before trying again.' }
 });
 
+const contributionLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many contribution submissions. Please try again later.' }
+});
+
 function getTokenFromRequest(req) {
     const cookies = Object.fromEntries(
         (req.headers.cookie || '')
@@ -789,6 +797,65 @@ app.post('/api/applicants', async (req, res) => {
     } catch (error) {
         console.error('[Supabase] Applicant save error:', error.message);
         return res.status(500).json({ success: false, message: 'Unable to save applicant.' });
+    }
+});
+
+app.post('/api/member-contributions', contributionLimiter, async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    const memberId = String(req.body?.memberId || '').trim();
+    const phone = String(req.body?.phone || '').trim();
+    const mpesaReference = String(req.body?.mpesaReference || '').trim().toUpperCase();
+    const isEmail = memberId.includes('@');
+    const validMemberId = isEmail
+        ? /^[A-Z0-9._+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(memberId)
+        : /^[A-Z0-9-]{1,50}$/i.test(memberId);
+    const phoneDigits = phone.replace(/\D/g, '').length;
+    if (!validMemberId || memberId.length > 254 ||
+        !/^\+?[\d\s()-]{7,20}$/.test(phone) || phoneDigits < 9 || phoneDigits > 15 ||
+        !/^[A-Z0-9]{6,20}$/.test(mpesaReference)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Enter a valid member email or account number, phone number, and M-Pesa transaction code.'
+        });
+    }
+
+    try {
+        const memberQuery = supabase
+            .from('applicants')
+            .select('allocated_account_no,status');
+        const { data: member, error: memberError } = await (isEmail
+            ? memberQuery.ilike('email', memberId)
+            : memberQuery.eq('allocated_account_no', memberId)
+        ).maybeSingle();
+        if (memberError) {
+            console.error('[Supabase] Could not verify membership for contribution:', memberError.message);
+            return res.status(500).json({ success: false, message: 'Unable to verify member details.' });
+        }
+        if (!member || member.status !== 'Approved Active') {
+            return res.status(403).json({ success: false, message: 'Membership details could not be verified or the account is not active.' });
+        }
+
+        const { data, error } = await supabase
+            .from('member_contributions')
+            .insert([{
+                member_account_no: member.allocated_account_no,
+                phone,
+                mpesa_reference: mpesaReference,
+                amount: 200
+            }])
+            .select('id,status,amount,submitted_at')
+            .single();
+        if (error) {
+            if (error.code === '23505') {
+                return res.status(409).json({ success: false, message: 'This M-Pesa transaction code has already been submitted.' });
+            }
+            console.error('[Supabase] Could not save member contribution:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to record this contribution.' });
+        }
+        return res.status(201).json({ success: true, data });
+    } catch (error) {
+        console.error('[Supabase] Member contribution submission error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to record this contribution.' });
     }
 });
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join Us - Miritini Response Team (MRT)</title><link rel="icon" type="image/jpeg" href="images/mrt-logo.jpg">
+    <title>Membership Coming Soon - Miritini Response Team (MRT)</title><link rel="icon" type="image/jpeg" href="images/mrt-logo.jpg">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
@@ -169,6 +169,28 @@
             font-size: 14px;
             border-top: 4px solid #5c2d91;
         }
+
+        .membership-coming-soon {
+            max-width: 760px;
+            margin: 48px auto;
+            padding: 36px 28px;
+            background: #fff;
+            border-left: 5px solid #5c2d91;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .membership-coming-soon h2 {
+            color: #5c2d91;
+            margin: 0 0 12px;
+        }
+
+        @media (max-width: 820px) {
+            .membership-coming-soon {
+                margin: 32px 18px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -191,12 +213,18 @@
 
     <!-- HERO HEADER -->
     <header class="hero-banner">
-        <h1>Join the Miritini Response Team</h1>
-        <p>Become an active part of local disaster management, ecological conservation, and community first-aid response networks.</p>
+        <h1>Membership Coming Soon</h1>
+        <p>We’re preparing our membership registration and contribution services. Please check back soon.</p>
     </header>
 
+    <section class="membership-coming-soon" role="status" aria-live="polite">
+        <h2>Applications are not open yet</h2>
+        <p>Thank you for your interest in joining the Miritini Response Team. Membership registration and payments will be available here soon.</p>
+        <p>For questions, please use our <a href="contact.html">Contact page</a>.</p>
+    </section>
+
     <!-- REGISTRATION WORKSPACE -->
-    <main class="membership-container">
+    <main class="membership-container" style="display:none;">
         
         <!-- LEFT SIDE: REGISTRATION FORM -->
         <div class="form-card">
@@ -579,6 +607,5 @@
 
 </body>
 </html>
-
 
 

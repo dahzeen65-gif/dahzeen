@@ -37,6 +37,8 @@ const contributionStatusLimiter = rateLimit({
     message: { success: false, message: 'Too many payment status checks. Please wait and try again.' }
 });
 
+const MRT_CONTRIBUTION_ACCOUNT_REFERENCE = '1352516519';
+
 function getMpesaConfiguration() {
     const environment = process.env.MPESA_ENVIRONMENT || 'sandbox';
     if (!['sandbox', 'production'].includes(environment)) {
@@ -959,7 +961,7 @@ app.post('/api/member-contributions/stk-push', contributionLimiter, async (req, 
                 PartyB: config.shortcode,
                 PhoneNumber: normalizedPhone,
                 CallBackURL: config.callbackUrl,
-                AccountReference: member.allocated_account_no,
+                AccountReference: MRT_CONTRIBUTION_ACCOUNT_REFERENCE,
                 TransactionDesc: 'MRT Monthly Contribution'
             }),
             signal: AbortSignal.timeout(15000)

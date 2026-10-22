@@ -144,7 +144,10 @@ function escapeGalleryText(value) {
 }
 
 function createMrtPrintBranding(title, subtitle) {
-    const logoUrl = new URL('../images/mrt-logo.jpg', window.location.href).href;
+    const logoPath = window.location.pathname.includes('/portal-engine/')
+        ? '../images/mrt-logo.jpg'
+        : 'images/mrt-logo.jpg';
+    const logoUrl = new URL(logoPath, window.location.href).href;
     return {
         styles: `
             .mrt-print-watermark {
@@ -239,11 +242,15 @@ function getMinuteAttachments(record) {
 function renderDocumentAttachmentLinks(attachments, className = 'document-attachment-links') {
     const validAttachments = (attachments || []).filter(file => file && documentAttachmentUrl(file.data));
     if (!validAttachments.length) return '';
-    return `<div class="${className}">${validAttachments.map(file => `
-        <a href="${escapeGalleryText(documentAttachmentUrl(file.data))}" download="${escapeGalleryText(file.name || 'attachment')}">
-            ${escapeGalleryText(file.name || 'Download attachment')}
-        </a>
-    `).join('')}</div>`;
+    return `<div class="${className}">${validAttachments.map(file => {
+        const url = escapeGalleryText(documentAttachmentUrl(file.data));
+        const name = escapeGalleryText(file.name || 'attachment');
+        return `<div class="document-attachment-item">
+            <span>${name}</span>
+            <a href="${url}" target="_blank" rel="noopener">View</a>
+            <a href="${url}" download="${name}">Download</a>
+        </div>`;
+    }).join('')}</div>`;
 }
 
 async function readDocumentAttachments(files, existing = []) {
@@ -1703,15 +1710,28 @@ function showMemberDocumentDetails(id) {
     if (!details) return;
 
     details.innerHTML = `
-        <div style="display:grid; gap:16px;">
-            <div><strong>Member Name:</strong> ${escapeGalleryText(doc.memberName)}</div>
-            <div><strong>Email / ID:</strong> ${escapeGalleryText(doc.memberEmail)}</div>
-            <div><strong>Submitted:</strong> ${escapeGalleryText(doc.submittedAt)}</div>
-            <div><strong>Notes:</strong> ${escapeGalleryText(doc.notes || 'None')}</div>
-            <div><strong>Download Files:</strong></div>
-            <div style="display:grid; gap:10px;">
-                ${Object.entries(doc.files || {}).map(([key, file]) => `<a href="${escapeGalleryText(file.data)}" download="${escapeGalleryText(file.name)}" class="download-link"><i class="fas fa-file"></i> ${escapeGalleryText(file.name || key)}</a>`).join('')}
-            </div>
+        <div class="member-document-preview">
+            <section class="member-document-section">
+                <h3>Submission details</h3>
+                <p><strong>Member:</strong> ${escapeGalleryText(doc.memberName)}</p>
+                <p><strong>Email / ID:</strong> ${escapeGalleryText(doc.memberEmail)}</p>
+                <p><strong>Submitted:</strong> ${escapeGalleryText(doc.submittedAt)}</p>
+                <p><strong>Notes:</strong> ${escapeGalleryText(doc.notes || 'None')}</p>
+            </section>
+            <section class="member-document-section">
+                <h3>Submitted files</h3>
+                <div class="document-attachment-links">${Object.entries(doc.files || {}).map(([key, file]) => {
+                    const viewUrl = documentAttachmentUrl(file.data);
+                    const downloadUrl = documentAttachmentUrl(file.download || file.data);
+                    if (!viewUrl || !downloadUrl) return '';
+                    const name = escapeGalleryText(file.name || key);
+                    return `<div class="document-attachment-item">
+                        <span>${name}</span>
+                        <a href="${escapeGalleryText(viewUrl)}" target="_blank" rel="noopener">View</a>
+                        <a href="${escapeGalleryText(downloadUrl)}" download="${name}">Download</a>
+                    </div>`;
+                }).join('')}</div>
+            </section>
         </div>
     `;
     document.getElementById('memberDocumentDetails').style.display = 'block';
@@ -2684,75 +2704,125 @@ function downloadMinutesPDF(id) {
 }
 
 // ====== FRONTEND DYNAMIC PDF ENGINE (DEPENDENCY FREE) ======
-function downloadMinutesPDF(id) {
-    const record = getMinutes().find(item => String(item.id) === String(id));
-
-    if (!record) {
-        alert("Error: Could not trace target minutes entry inside database arrays.");
+function openMrtDocumentView(title, subtitle, sections, attachments = [], autoPrint = false) {
+    const documentWindow = window.open('', '_blank', 'width=900,height=800');
+    if (!documentWindow) {
+        alert('Allow pop-ups for this site to view or print the document.');
         return;
     }
 
-    // Compile stylized print layout document page stream
-    const pdfWindow = window.open('', '_blank', 'width=850,height=700');
-    const branding = createMrtPrintBranding('Miritini Response Team (MRT)', 'Meeting Minutes Vault');
-    
-    pdfWindow.document.write(`
-        <html>
+    const branding = createMrtPrintBranding(title, subtitle);
+    const sectionMarkup = sections.map(section => `
+        <section class="document-section">
+            <h2>${escapeGalleryText(section.title)}</h2>
+            <div class="section-content">${escapeGalleryText(section.content || 'Not provided')}</div>
+        </section>
+    `).join('');
+    const attachmentMarkup = attachments.length
+        ? `<section class="document-section">
+               <h2>Supporting files</h2>
+               <div class="attachment-list">${attachments.map(file => {
+                   const url = documentAttachmentUrl(file.data);
+                   if (!url) return '';
+                   const safeUrl = escapeGalleryText(url);
+                   const name = escapeGalleryText(file.name || 'Attachment');
+                   return `<div class="attachment-row">
+                       <span>${name}</span>
+                       <a href="${safeUrl}" target="_blank" rel="noopener">Open</a>
+                       <a href="${safeUrl}" download="${name}">Download</a>
+                   </div>`;
+               }).join('')}</div>
+               <p class="attachment-note">Open a supporting file separately to read or print its original contents.</p>
+           </section>`
+        : '';
+
+    documentWindow.document.write(`<!doctype html>
+        <html lang="en">
         <head>
-            <title>MRT_Minutes_Log_${escapeGalleryText(record.id)}</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>${escapeGalleryText(title)}</title>
             <style>
-                body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; margin: 30px; line-height: 1.5; }
-                .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-                .info-grid td { padding: 8px 12px; border: 1px solid #ddd; font-size: 13px; }
-                .info-grid td.meta-label { font-weight: bold; background: #f5f7fa; width: 20%; color: #002d62; }
-                .section-heading { font-size: 14px; color: #002d62; font-weight: bold; text-transform: uppercase; margin: 20px 0 8px 0; border-bottom: 1px solid #002d62; padding-bottom: 3px; }
-                .text-content-box { background: #fafbfc; border: 1px solid #e1e4e8; padding: 12px; border-radius: 4px; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; }
-                .footer { margin-top: 60px; text-align: center; font-size: 11px; color: #777; border-top: 1px solid #eee; padding-top: 8px; }
+                * { box-sizing: border-box; }
+                body { margin: 0; padding: 32px; background: #f2f0f5; color: #2d2933; font: 15px/1.65 Arial, sans-serif; }
+                .document-toolbar { display: flex; justify-content: flex-end; max-width: 900px; margin: 0 auto 16px; }
+                .document-toolbar button { border: 0; border-radius: 8px; padding: 10px 16px; color: #fff; background: #5c2d91; font-weight: 700; cursor: pointer; }
+                .document-page { max-width: 900px; min-height: 80vh; margin: auto; padding: 44px 52px; background: #fff; border-radius: 16px; box-shadow: 0 12px 36px rgba(35, 24, 48, .12); }
+                .document-section { margin: 24px 0; break-inside: avoid; }
+                .document-section h2 { margin: 0 0 10px; padding-bottom: 7px; border-bottom: 1px solid #e5deed; color: #4a2673; font-size: 16px; }
+                .section-content { padding: 14px 16px; border-left: 3px solid #9b78bd; border-radius: 0 8px 8px 0; background: #f8f6fa; white-space: pre-wrap; overflow-wrap: anywhere; }
+                .attachment-list { display: grid; gap: 8px; }
+                .attachment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px; border: 1px solid #e9e5ed; border-radius: 8px; }
+                .attachment-row span { flex: 1 1 220px; overflow-wrap: anywhere; }
+                .attachment-row a { color: #5c2d91; font-weight: 700; }
+                .attachment-note, .document-footer { color: #706a78; font-size: 12px; }
+                .document-footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #e9e5ed; text-align: center; }
                 ${branding.styles}
+                @media (max-width: 600px) {
+                    body { padding: 12px; }
+                    .document-page { padding: 24px 18px; border-radius: 10px; }
+                }
+                @media print {
+                    body { padding: 0; background: #fff; }
+                    .document-toolbar { display: none; }
+                    .document-page { max-width: none; min-height: 0; padding: 0; border-radius: 0; box-shadow: none; }
+                    .document-section { break-inside: avoid; }
+                    .attachment-row a { color: #333; }
+                }
             </style>
         </head>
         <body>
+            <div class="document-toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
             ${branding.watermark}
-            <main class="mrt-print-content">
-            ${branding.header}
-
-            <table class="info-grid">
-                <tr>
-                    <td class="meta-label">Log Ref ID:</td>
-                    <td>MRT-MIN-${escapeGalleryText(record.id)}</td>
-                    <td class="meta-label">Date & Time:</td>
-                    <td>${escapeGalleryText(record.date)}</td>
-                </tr>
-                <tr>
-                    <td class="meta-label">Meeting Venue:</td>
-                    <td>${escapeGalleryText(record.venue)}</td>
-                    <td class="meta-label">Compiled By:</td>
-                    <td>${escapeGalleryText(record.uploadedBy)}</td>
-                </tr>
-            </table>
-
-            <div class="section-heading">Attendance Record</div>
-            <div class="text-content-box">${escapeGalleryText(record.attendees)}</div>
-
-            <div class="section-heading">Agenda & Minutes Discussion Details</div>
-            <div class="text-content-box">${escapeGalleryText(record.agenda)}</div>
-
-            <div class="footer">
-                This document is an authenticated copy generated from the MRT Central store vault file archive.
-            </div>
+            <main class="document-page mrt-print-content">
+                ${branding.header}
+                ${sectionMarkup}
+                ${attachmentMarkup}
+                <footer class="document-footer">Miritini Response Team · Official document copy</footer>
             </main>
         </body>
-        </html>
-    `);
+        </html>`);
+    documentWindow.document.close();
+    documentWindow.focus();
+    if (autoPrint) setTimeout(() => documentWindow.print(), 500);
+    return documentWindow;
+}
 
-    pdfWindow.document.close();
-    pdfWindow.focus();
+function viewMinutesDocument(id) {
+    const record = getMinutes().find(item => String(item.id) === String(id));
+    if (!record) {
+        alert('Meeting minutes record not found.');
+        return;
+    }
+    openMrtDocumentView(
+        `Meeting Minutes — ${record.date || record.id}`,
+        'Official Meeting Minutes Record',
+        [
+            { title: 'Meeting details', content: `Reference: MRT-MIN-${record.id}\nDate & time: ${record.date || 'Not provided'}\nVenue: ${record.venue || 'Not provided'}\nCompiled by: ${record.uploadedBy || 'Authorized Officer'}` },
+            { title: 'Attendees', content: record.attendees },
+            { title: 'Agenda and minutes', content: record.agenda }
+        ],
+        getMinuteAttachments(record)
+    );
+}
 
-    // Trigger printing prompt overlay engine smoothly
-    setTimeout(() => {
-        pdfWindow.print();
-        pdfWindow.close();
-    }, 400);
+function downloadMinutesPDF(id) {
+    const record = getMinutes().find(item => String(item.id) === String(id));
+    if (!record) {
+        alert('Meeting minutes record not found.');
+        return;
+    }
+    openMrtDocumentView(
+        `Meeting Minutes — ${record.date || record.id}`,
+        'Official Meeting Minutes Record',
+        [
+            { title: 'Meeting details', content: `Reference: MRT-MIN-${record.id}\nDate & time: ${record.date || 'Not provided'}\nVenue: ${record.venue || 'Not provided'}\nCompiled by: ${record.uploadedBy || 'Authorized Officer'}` },
+            { title: 'Attendees', content: record.attendees },
+            { title: 'Agenda and minutes', content: record.agenda }
+        ],
+        getMinuteAttachments(record),
+        true
+    );
 }
 
 
@@ -2853,7 +2923,7 @@ function renderMinutesTableRepository() {
             <td><div style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeGalleryText(item.agenda)}">${escapeGalleryText(item.agenda || 'N/A')}</div></td>
             <td>${escapeGalleryText(item.uploadedBy || 'Authorized Officer')}</td>
             <td>
-                <button class="view-btn" style="padding: 4px 8px; font-size:12px;" data-minute-view="${escapeGalleryText(item.id)}">View</button>
+                <button class="view-btn" style="padding: 4px 8px; font-size:12px;" data-minute-view="${escapeGalleryText(item.id)}">Read</button>
                 ${renderDocumentAttachmentLinks(getMinuteAttachments(item), 'minute-attachment-links')}
             </td>
             <td>
@@ -2864,10 +2934,7 @@ function renderMinutesTableRepository() {
     `).join('');
 
     fallbackBody.querySelectorAll('[data-minute-view]').forEach(button => {
-        button.addEventListener('click', () => {
-            const item = minutesList.find(record => String(record.id) === button.dataset.minuteView);
-            if (item) alert(`Meeting minutes\n\nAgenda:\n${item.agenda || ''}`);
-        });
+        button.addEventListener('click', () => viewMinutesDocument(button.dataset.minuteView));
     });
     fallbackBody.querySelectorAll('[data-minute-pdf]').forEach(button => {
         button.addEventListener('click', () => downloadMinutesPDF(button.dataset.minutePdf));

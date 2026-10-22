@@ -125,3 +125,63 @@ function deleteReportRecord(id) {
     }
 }
 
+function renderStructuredReport(report) {
+  const rawDesc = report.description || "";
+
+  // Gawanya maelezo makubwa kupitia namba za vifungu (Mfano: 1. Introduction, 2. Objectives, n.k.)
+  // Hii inatenganisha ripoti kuwa sehemu/sessions huru zenye mpangilio safi
+
+  return `
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+      <!-- Report Header -->
+      <div class="border-bottom pb-3 mb-4">
+        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
+          ${report.type || 'Activity Report'}
+        </span>
+        <h3 class="fw-bold text-dark mb-2">${report.title}</h3>
+        <div class="d-flex flex-wrap gap-3 text-muted small">
+          <span>📅 <strong>Tarehe:</strong> ${report.date_filed || report.activity_date}</span>
+          <span>👥 <strong>Walioshiriki:</strong> ${report.participants || 'N/A'}</span>
+          <span>✍️ <strong>Imetolewa na:</strong> ${report.filed_by || 'MRT Team'}</span>
+        </div>
+      </div>
+
+      <!-- Structured Activity Sessions / Sections -->
+      <div class="report-body text-secondary" style="line-height: 1.8; font-size: 0.95rem;">
+        ${formatReportIntoSessions(rawDesc)}
+      </div>
+    </div>
+  `;
+}
+
+// Kazi inayopangilia maneno kuwa Sessions na Paragrafu nadhifu
+function formatReportIntoSessions(text) {
+  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
+
+  // Badilisha vichwa vya habari vya namba kuwa Cards/Sections tofauti
+  let formatted = text
+    // 1. Introduction
+    .replace(/1\.\s+Introduction/gi, '<div class="p-3 mb-3 bg-light rounded-3 border-start border-primary border-4"><h5 class="fw-bold text-dark mb-2">1. Introduction</h5>')
+    // 2. Objectives
+    .replace(/2\.\s+Objectives/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-success border-4"><h5 class="fw-bold text-dark mb-2">2. Objectives of the Training</h5>')
+    // 3. Topics Covered
+    .replace(/3\.\s+Topics\s+Covered/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-warning border-4"><h5 class="fw-bold text-dark mb-2">3. Topics Covered</h5>')
+    // 3.1, 3.2, 3.3, 3.4 Subsections
+    .replace(/3\.1\s+/g, '<h6 class="fw-bold text-primary mt-3">3.1 ')
+    .replace(/3\.2\s+/g, '<h6 class="fw-bold text-primary mt-3">3.2 ')
+    .replace(/3\.3\s+/g, '<h6 class="fw-bold text-primary mt-3">3.3 ')
+    .replace(/3\.4\s+/g, '<h6 class="fw-bold text-primary mt-3">3.4 ')
+    // 4. Key Lessons Learned
+    .replace(/4\.\s+Key\s+Lessons/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-info border-4"><h5 class="fw-bold text-dark mb-2">4. Key Lessons Learned</h5>')
+    // 5. Relevance
+    .replace(/5\.\s+Relevance/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-danger border-4"><h5 class="fw-bold text-dark mb-2">5. Relevance to MRT</h5>')
+    // 6. Recommendations
+    .replace(/6\.\s+Recommendations/gi, '</div><div class="p-3 mb-3 bg-light rounded-3 border-start border-secondary border-4"><h5 class="fw-bold text-dark mb-2">6. Recommendations</h5>')
+    // Funga div ya mwisho
+    + '</div>';
+
+  // Rekebisha alama za bullet (-) ziwe kwenye muonekano wa orodha safi
+  formatted = formatted.replace(/-\s+([^\.]+)(\.)?/g, '<li class="mb-1 text-muted">$1$2</li>');
+
+  return formatted;
+}

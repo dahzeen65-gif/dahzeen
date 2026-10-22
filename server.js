@@ -1355,9 +1355,17 @@ app.get('/api/member-documents', requireAuth, requireRole('Super Admin'), async 
                 if (!item || typeof item.path !== 'string') return;
                 const { data: signed, error: signError } = await supabase.storage
                     .from(MEMBER_DOCUMENTS_BUCKET)
-                    .createSignedUrl(item.path, 10 * 60, { download: item.name || true });
+                    .createSignedUrl(item.path, 10 * 60);
                 if (signError) throw signError;
-                files[key] = { name: item.name || MEMBER_DOCUMENT_LABELS[key], data: signed.signedUrl };
+                const { data: downloadable, error: downloadError } = await supabase.storage
+                    .from(MEMBER_DOCUMENTS_BUCKET)
+                    .createSignedUrl(item.path, 10 * 60, { download: item.name || true });
+                if (downloadError) throw downloadError;
+                files[key] = {
+                    name: item.name || MEMBER_DOCUMENT_LABELS[key],
+                    data: signed.signedUrl,
+                    download: downloadable.signedUrl
+                };
             }));
             const required = parseRequiredMemberDocuments(row.required_documents);
             return {

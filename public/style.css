@@ -2831,6 +2831,39 @@ main,
 .document-attachment-links a:focus-visible {
     color: #3d1c68;
 }
+
+.document-attachment-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+}
+
+.document-attachment-item span {
+    max-width: 220px;
+    overflow-wrap: anywhere;
+}
+
+.member-document-preview {
+    display: grid;
+    gap: 16px;
+}
+
+.member-document-section {
+    padding: 16px;
+    border: 1px solid #e9e5ed;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.member-document-section h3 {
+    margin: 0 0 10px;
+    color: #4a2673;
+}
+
+.member-document-section p {
+    margin: 5px 0;
+}
 .program-card {
   background: rgba(40, 20, 55, 0.95); /* Adjust to match your theme */
   backdrop-filter: blur(4px);

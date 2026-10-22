@@ -2356,6 +2356,39 @@ main,
     color: #3d1c68;
 }
 
+.document-attachment-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+}
+
+.document-attachment-item span {
+    max-width: 220px;
+    overflow-wrap: anywhere;
+}
+
+.member-document-preview {
+    display: grid;
+    gap: 16px;
+}
+
+.member-document-section {
+    padding: 16px;
+    border: 1px solid #e9e5ed;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.member-document-section h3 {
+    margin: 0 0 10px;
+    color: #4a2673;
+}
+
+.member-document-section p {
+    margin: 5px 0;
+}
+
 .gallery-carousel-section {
     width: 100%;
     margin: 32px 0 40px;

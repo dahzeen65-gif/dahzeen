@@ -168,6 +168,7 @@ function normalizeMinuteRecord(row) {
         attendees: row.attendees || '',
         agenda: row.agenda || '',
         uploadedBy: row.uploaded_by || row.uploadedBy || 'Authorized Officer',
+        attachments: parseDocumentAttachments(row.file_url || row.fileData || '', row.file_name || row.fileName || `meeting-minutes-${row.id}`),
         fileData: row.file_url || row.fileData || '',
         fileName: row.file_name || row.fileName || `meeting-minutes-${row.id}`
     };
@@ -185,6 +186,86 @@ function escapeMinuteHtml(value) {
         '"': '&quot;',
         "'": '&#39;'
     })[character]);
+}
+
+const MAX_DOCUMENT_ATTACHMENTS = 10;
+const MAX_DOCUMENT_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+function parseDocumentAttachments(value, fallbackName = 'Attachment') {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== 'string' || !value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+    } catch {
+        // A plain data URL is the legacy single-file format.
+    }
+    return [{ name: fallbackName, type: '', data: value }];
+}
+
+function documentAttachmentUrl(value) {
+    const url = String(value || '');
+    if (/^(https?:\/\/|\/|\.\/|\.\.\/|images\/)/i.test(url)) return url;
+    return /^data:[\w.+-]+\/[\w.+-]+;base64,[a-z0-9+/]+=*$/i.test(url) ? url : '';
+}
+
+function getReportAttachments(report) {
+    return report.attachments?.length
+        ? report.attachments
+        : parseDocumentAttachments(report.photo, 'Report attachment');
+}
+
+function getMinuteAttachments(record) {
+    return record.attachments?.length
+        ? record.attachments
+        : parseDocumentAttachments(record.fileData, record.fileName || 'Meeting minutes');
+}
+
+function renderDocumentAttachmentLinks(attachments, className = 'document-attachment-links') {
+    const validAttachments = (attachments || []).filter(file => file && documentAttachmentUrl(file.data));
+    if (!validAttachments.length) return '';
+    return `<div class="${className}">${validAttachments.map(file => `
+        <a href="${escapeMinuteHtml(documentAttachmentUrl(file.data))}" download="${escapeMinuteHtml(file.name || 'attachment')}">
+            ${escapeMinuteHtml(file.name || 'Download attachment')}
+        </a>
+    `).join('')}</div>`;
+}
+
+async function readDocumentAttachments(files, existing = []) {
+    const selectedFiles = Array.from(files || []);
+    const attachments = [...existing];
+    if (attachments.length + selectedFiles.length > MAX_DOCUMENT_ATTACHMENTS) {
+        throw new Error(`You can attach up to ${MAX_DOCUMENT_ATTACHMENTS} files to one document.`);
+    }
+
+    let totalBytes = attachments.reduce((total, file) => {
+        if (Number.isFinite(file.size)) return total + file.size;
+        const base64 = String(file.data || '').split(',')[1] || '';
+        return total + Math.floor(base64.length * 0.75);
+    }, 0);
+    for (const file of selectedFiles) {
+        totalBytes += file.size;
+        if (totalBytes > MAX_DOCUMENT_ATTACHMENT_BYTES) {
+            throw new Error('All attachments together must be 8 MB or smaller.');
+        }
+    }
+    if (totalBytes > MAX_DOCUMENT_ATTACHMENT_BYTES) {
+        throw new Error('All attachments together must be 8 MB or smaller.');
+    }
+
+    const selectedAttachments = await Promise.all(selectedFiles.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result !== 'string') {
+                reject(new Error(`Unable to read ${file.name}.`));
+                return;
+            }
+            resolve({ name: file.name, type: file.type, size: file.size, data: reader.result });
+        };
+        reader.onerror = () => reject(reader.error || new Error(`Unable to read ${file.name}.`));
+        reader.readAsDataURL(file);
+    })));
+    return [...attachments, ...selectedAttachments];
 }
 
 function createMrtPrintBranding(title, subtitle) {
@@ -276,20 +357,12 @@ function getPortalData(key, defaultData) {
 // Preview helper for dynamically injected photo input
 function previewReportPhoto(event) {
     const input = event.target;
-    const file = input?.files?.[0];
     const preview = document.getElementById('reportPhotoPreview');
     if (!preview) return;
-    if (!file) {
-        preview.src = '';
-        preview.style.display = 'none';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(input?.files || []);
+    preview.textContent = files.length
+        ? `${files.length} file${files.length === 1 ? '' : 's'} selected: ${files.map(file => file.name).join(', ')}`
+        : '';
 }
 
 // ====== INITIALIZE WORKSPACE RENDERING ======
@@ -897,9 +970,9 @@ function toggleReportForm(type) {
                 <input type="number" id="actBudget" placeholder="e.g., 5000" min="0" step="100">
             </div>
             <div class="form-group">
-                <label for="reportPhoto">Upload Photo</label>
-                <input type="file" id="reportPhoto" accept="image/*" onchange="previewReportPhoto(event)">
-                <img id="reportPhotoPreview" src="" alt="Preview" style="max-width:150px; display:none; margin-top:10px; border:1px solid #e1e1e1; padding:4px;">
+                <label for="reportPhoto">Attach Files (optional, up to 10 files / 8 MB total)</label>
+                <input type="file" id="reportPhoto" accept="image/*,.pdf,.doc,.docx,.txt" multiple onchange="previewReportPhoto(event)">
+                <div id="reportPhotoPreview" class="selected-attachment-list" aria-live="polite"></div>
             </div>
         `;
     } else if (type === 'incident') {
@@ -954,9 +1027,9 @@ function toggleReportForm(type) {
                 </select>
             </div>
             <div class="form-group">
-                <label for="reportPhoto">Upload Photo</label>
-                <input type="file" id="reportPhoto" accept="image/*" onchange="previewReportPhoto(event)">
-                <img id="reportPhotoPreview" src="" alt="Preview" style="max-width:150px; display:none; margin-top:10px; border:1px solid #e1e1e1; padding:4px;">
+                <label for="reportPhoto">Attach Files (optional, up to 10 files / 8 MB total)</label>
+                <input type="file" id="reportPhoto" accept="image/*,.pdf,.doc,.docx,.txt" multiple onchange="previewReportPhoto(event)">
+                <div id="reportPhotoPreview" class="selected-attachment-list" aria-live="polite"></div>
             </div>
         `;
     }
@@ -969,7 +1042,7 @@ function hideReportForm() {
     if (container) container.style.display = 'none';
 }
 
-function handleReportFormSubmission(e) {
+async function handleReportFormSubmission(e) {
     e.preventDefault();
 
     const type = document.getElementById("activeFormType").value; 
@@ -1002,9 +1075,9 @@ function handleReportFormSubmission(e) {
         reportObject.status = document.getElementById("incStatus")?.value || '';
     }
 
-    // Handle optional photo file (as DataURL) before saving
+    // Handle optional attachments as DataURLs before saving.
     const fileInput = document.getElementById('reportPhoto');
-    const file = fileInput?.files?.[0];
+    const files = fileInput?.files || [];
 
     function finalizeSave(obj) {
         const current = getPortalData(STORAGE_KEYS.reports, defaultReports);
@@ -1015,15 +1088,12 @@ function handleReportFormSubmission(e) {
         renderReportsTable();
     }
 
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(loadEvent) {
-            reportObject.photo = loadEvent.target.result;
-            finalizeSave(reportObject);
-        };
-        reader.readAsDataURL(file);
-    } else {
+    try {
+        if (files.length) reportObject.attachments = await readDocumentAttachments(files);
         finalizeSave(reportObject);
+    } catch (error) {
+        console.error('Could not read report attachments:', error);
+        alert(error.message || 'Unable to read the selected report files.');
     }
 }
 
@@ -1040,7 +1110,7 @@ function renderReportsTable() {
 
     tableBody.innerHTML = storedReports.map(r => `
         <tr>
-            <td><strong>${r.title}</strong>${r.photo ? `<br><img src="${r.photo}" alt="photo" style="max-width:100px; margin-top:6px; border:1px solid #e1e1e1; padding:4px;">` : ''}</td>
+            <td><strong>${escapeMinuteHtml(r.title)}</strong>${renderDocumentAttachmentLinks(getReportAttachments(r))}</td>
             <td><span class="badge ${r.type.includes('Incident') ? 'executive' : 'public'}">${r.type}</span></td>
             <td>${r.dateFiled}</td>
             <td>${r.filedBy}</td>
@@ -1146,7 +1216,7 @@ function printReports() {
             <tr>
                 <td>${escapeMinuteHtml(r.dateFiled)}</td>
                 <td>${escapeMinuteHtml(r.type)}</td>
-                <td>${escapeMinuteHtml(r.title)}</td>
+                <td>${escapeMinuteHtml(r.title)}${renderDocumentAttachmentLinks(getReportAttachments(r))}</td>
                 <td>${escapeMinuteHtml(r.filedBy)}</td>
             </tr>
         `;
@@ -2378,6 +2448,7 @@ function renderMinutesTableRepository() {
             <td>${escapeMinuteHtml(item.uploadedBy || 'Authorized Officer')}</td>
             <td>
                 <button class="view-btn" style="padding: 4px 8px; font-size:12px;" onclick="viewMinutesFile('${escapeMinuteHtml(item.id)}')">View / Edit</button>
+                ${renderDocumentAttachmentLinks(getMinuteAttachments(item), 'minute-attachment-links')}
             </td>
             <td>
                 <button class="pdf-icon-btn" onclick="downloadMinutesPDF('${escapeMinuteHtml(item.id)}')" title="Get File as PDF">📄 PDF</button>
@@ -2491,40 +2562,29 @@ async function submitDocumentUploadForm(event) {
     const attendeesValue = attendeesInput ? attendeesInput.value.trim() : "";
     const agendaValue = agendaInput ? agendaInput.value.trim() : "";
     const editingId = form ? form.getAttribute("data-editing-id") : null;
-    const selectedFile = fileInput && fileInput.files ? fileInput.files[0] : null;
+    const selectedFiles = fileInput && fileInput.files ? fileInput.files : [];
+    const existing = editingId ? getMinutes().find(item => String(item.id) === String(editingId)) : null;
 
-    if (!dateValue || !venueValue || (!editingId && !selectedFile)) {
-        alert('Please provide the meeting date, venue, and minutes file.');
-        return;
-    }
-    if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
-        alert('The minutes file must be 10 MB or smaller.');
+    if (!dateValue || !venueValue || (!editingId && !selectedFiles.length)) {
+        alert('Please provide the meeting date, venue, and at least one minutes file.');
         return;
     }
 
     try {
-        let fileUrl;
-        if (selectedFile) {
-            fileUrl = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => typeof reader.result === 'string'
-                    ? resolve(reader.result)
-                    : reject(new Error('Unable to read the selected minutes file.'));
-                reader.onerror = () => reject(reader.error || new Error('Unable to read the selected minutes file.'));
-                reader.readAsDataURL(selectedFile);
-            });
-        }
+        const attachments = selectedFiles.length
+            ? await readDocumentAttachments(selectedFiles, existing?.attachments || [])
+            : (existing?.attachments || []);
 
         const payload = {
             date_time: new Date(dateValue).toISOString(),
             venue: venueValue,
             attendees: attendeesValue,
             agenda: agendaValue,
+            file_url: JSON.stringify(attachments),
             uploaded_by: uploadedByInput && uploadedByInput.value.trim()
                 ? uploadedByInput.value.trim()
                 : 'Authorized Officer'
         };
-        if (fileUrl) payload.file_url = fileUrl;
 
         const response = await fetch(editingId
             ? `/api/minutes/${encodeURIComponent(editingId)}`

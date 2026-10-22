@@ -2810,6 +2810,27 @@ main,
 .pdf-icon-btn:hover {
     background-color: #bd2130; /* Darker red on mouse hover */
 }
+
+.selected-attachment-list,
+.document-attachment-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin-top: 8px;
+    color: #686271;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.document-attachment-links a {
+    color: #5c2d91;
+    text-decoration: underline;
+}
+
+.document-attachment-links a:hover,
+.document-attachment-links a:focus-visible {
+    color: #3d1c68;
+}
 .program-card {
   background: rgba(40, 20, 55, 0.95); /* Adjust to match your theme */
   backdrop-filter: blur(4px);

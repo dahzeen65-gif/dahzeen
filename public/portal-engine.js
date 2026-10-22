@@ -203,6 +203,88 @@ function safeGalleryUrl(value) {
     return /^(https?:\/\/|\/|\.\/|\.\.\/|images\/|data:(image|video)\/)/i.test(url) ? url : '';
 }
 
+const MAX_DOCUMENT_ATTACHMENTS = 10;
+const MAX_DOCUMENT_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+function parseDocumentAttachments(value, fallbackName = 'Attachment') {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== 'string' || !value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+    } catch {
+        // A plain data URL is the legacy single-file format.
+    }
+    return [{ name: fallbackName, type: '', data: value }];
+}
+
+function documentAttachmentUrl(value) {
+    const url = String(value || '');
+    if (/^(https?:\/\/|\/|\.\/|\.\.\/|images\/)/i.test(url)) return url;
+    return /^data:[\w.+-]+\/[\w.+-]+;base64,[a-z0-9+/]+=*$/i.test(url) ? url : '';
+}
+
+function getReportAttachments(report) {
+    return report.attachments?.length
+        ? report.attachments
+        : parseDocumentAttachments(report.photo, 'Report attachment');
+}
+
+function getMinuteAttachments(record) {
+    return record.attachments?.length
+        ? record.attachments
+        : parseDocumentAttachments(record.fileData, record.fileName || 'Meeting minutes');
+}
+
+function renderDocumentAttachmentLinks(attachments, className = 'document-attachment-links') {
+    const validAttachments = (attachments || []).filter(file => file && documentAttachmentUrl(file.data));
+    if (!validAttachments.length) return '';
+    return `<div class="${className}">${validAttachments.map(file => `
+        <a href="${escapeGalleryText(documentAttachmentUrl(file.data))}" download="${escapeGalleryText(file.name || 'attachment')}">
+            ${escapeGalleryText(file.name || 'Download attachment')}
+        </a>
+    `).join('')}</div>`;
+}
+
+async function readDocumentAttachments(files, existing = []) {
+    const selectedFiles = Array.from(files || []);
+    const attachments = [...existing];
+    if (attachments.length + selectedFiles.length > MAX_DOCUMENT_ATTACHMENTS) {
+        throw new Error(`You can attach up to ${MAX_DOCUMENT_ATTACHMENTS} files to one document.`);
+    }
+
+    let totalBytes = attachments.reduce((total, file) => {
+        if (Number.isFinite(file.size)) return total + file.size;
+        const base64 = String(file.data || '').split(',')[1] || '';
+        return total + Math.floor(base64.length * 0.75);
+    }, 0);
+
+    for (const file of selectedFiles) {
+        totalBytes += file.size;
+        if (totalBytes > MAX_DOCUMENT_ATTACHMENT_BYTES) {
+            throw new Error('All attachments together must be 8 MB or smaller.');
+        }
+    }
+    if (totalBytes > MAX_DOCUMENT_ATTACHMENT_BYTES) {
+        throw new Error('All attachments together must be 8 MB or smaller.');
+    }
+
+    const selectedAttachments = await Promise.all(selectedFiles.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result !== 'string') {
+                reject(new Error(`Unable to read ${file.name}.`));
+                return;
+            }
+            resolve({ name: file.name, type: file.type, size: file.size, data: reader.result });
+        };
+        reader.onerror = () => reject(reader.error || new Error(`Unable to read ${file.name}.`));
+        reader.readAsDataURL(file);
+    })));
+
+    return [...attachments, ...selectedAttachments];
+}
+
 async function refreshGalleryFromSupabase() {
     try {
         const response = await fetch('/api/gallery');
@@ -273,6 +355,7 @@ function normalizeReportRecord(row) {
         type: row.category || details.type || 'Report',
         dateFiled: details.dateFiled || (row.created_at ? new Date(row.created_at).toLocaleDateString() : ''),
         filedBy: details.filedBy || '',
+        attachments: parseDocumentAttachments(details.attachments),
         photo: row.file_url || details.photo || ''
     };
 }
@@ -423,6 +506,7 @@ function normalizeMinuteRecord(row) {
         attendees: row.attendees || '',
         agenda: row.agenda || '',
         uploadedBy: row.uploaded_by || row.uploadedBy || 'Authorized Officer',
+        attachments: parseDocumentAttachments(row.file_url || row.fileData || '', row.file_name || row.fileName || `meeting-minutes-${row.id}`),
         fileData: row.file_url || row.fileData || '',
         fileName: row.file_name || row.fileName || `meeting-minutes-${row.id}`
     };
@@ -517,20 +601,12 @@ function getPortalData(key, defaultData) {
 // Preview helper for dynamically injected photo input
 function previewReportPhoto(event) {
     const input = event.target;
-    const file = input?.files?.[0];
     const preview = document.getElementById('reportPhotoPreview');
     if (!preview) return;
-    if (!file) {
-        preview.src = '';
-        preview.style.display = 'none';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(input?.files || []);
+    preview.textContent = files.length
+        ? `${files.length} file${files.length === 1 ? '' : 's'} selected: ${files.map(file => file.name).join(', ')}`
+        : '';
 }
 
 // ====== INITIALIZE WORKSPACE RENDERING ======
@@ -1202,9 +1278,9 @@ function toggleReportForm(type) {
                 <input type="number" id="actBudget" placeholder="e.g., 5000" min="0" step="100">
             </div>
             <div class="form-group">
-                <label for="reportPhoto">Upload Photo</label>
-                <input type="file" id="reportPhoto" accept="image/*" onchange="previewReportPhoto(event)">
-                <img id="reportPhotoPreview" src="" alt="Preview" style="max-width:150px; display:none; margin-top:10px; border:1px solid #e1e1e1; padding:4px;">
+                <label for="reportPhoto">Attach Files (optional, up to 10 files / 8 MB total)</label>
+                <input type="file" id="reportPhoto" accept="image/*,.pdf,.doc,.docx,.txt" multiple onchange="previewReportPhoto(event)">
+                <div id="reportPhotoPreview" class="selected-attachment-list" aria-live="polite"></div>
             </div>
         `;
     } else if (type === 'incident') {
@@ -1259,9 +1335,9 @@ function toggleReportForm(type) {
                 </select>
             </div>
             <div class="form-group">
-                <label for="reportPhoto">Upload Photo</label>
-                <input type="file" id="reportPhoto" accept="image/*" onchange="previewReportPhoto(event)">
-                <img id="reportPhotoPreview" src="" alt="Preview" style="max-width:150px; display:none; margin-top:10px; border:1px solid #e1e1e1; padding:4px;">
+                <label for="reportPhoto">Attach Files (optional, up to 10 files / 8 MB total)</label>
+                <input type="file" id="reportPhoto" accept="image/*,.pdf,.doc,.docx,.txt" multiple onchange="previewReportPhoto(event)">
+                <div id="reportPhotoPreview" class="selected-attachment-list" aria-live="polite"></div>
             </div>
         `;
     }
@@ -1307,9 +1383,9 @@ async function handleReportFormSubmission(e) {
         reportObject.status = document.getElementById("incStatus")?.value || '';
     }
 
-    // Handle optional photo file (as DataURL) before saving
+    // Save optional attachments as data URLs for the existing report API.
     const fileInput = document.getElementById('reportPhoto');
-    const file = fileInput?.files?.[0];
+    const files = fileInput?.files || [];
 
     async function finalizeSave(obj) {
         try {
@@ -1323,15 +1399,12 @@ async function handleReportFormSubmission(e) {
         }
     }
 
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(loadEvent) {
-            reportObject.photo = loadEvent.target.result;
-            finalizeSave(reportObject);
-        };
-        reader.readAsDataURL(file);
-    } else {
+    try {
+        if (files.length) reportObject.attachments = await readDocumentAttachments(files);
         await finalizeSave(reportObject);
+    } catch (error) {
+        console.error('Could not read report attachments:', error);
+        alert(error.message || 'Unable to read the selected report files.');
     }
 }
 
@@ -1348,7 +1421,7 @@ function renderReportsTable() {
 
     tableBody.innerHTML = storedReports.map(r => `
         <tr>
-            <td><strong>${escapeGalleryText(r.title)}</strong>${r.photo ? `<br><img src="${escapeGalleryText(safeGalleryUrl(r.photo))}" alt="Report attachment" style="max-width:100px; margin-top:6px; border:1px solid #e1e1e1; padding:4px;">` : ''}</td>
+            <td><strong>${escapeGalleryText(r.title)}</strong>${renderDocumentAttachmentLinks(getReportAttachments(r))}</td>
             <td><span class="badge ${r.type.includes('Incident') ? 'executive' : 'public'}">${escapeGalleryText(r.type)}</span></td>
             <td>${escapeGalleryText(r.dateFiled)}</td>
             <td>${escapeGalleryText(r.filedBy)}</td>
@@ -1460,7 +1533,7 @@ function printReports() {
             <tr>
                 <td>${escapeGalleryText(r.dateFiled)}</td>
                 <td>${escapeGalleryText(r.type)}</td>
-                <td>${escapeGalleryText(r.title)}</td>
+                <td>${escapeGalleryText(r.title)}${renderDocumentAttachmentLinks(getReportAttachments(r))}</td>
                 <td>${escapeGalleryText(r.filedBy)}</td>
             </tr>
         `;
@@ -2781,6 +2854,7 @@ function renderMinutesTableRepository() {
             <td>${escapeGalleryText(item.uploadedBy || 'Authorized Officer')}</td>
             <td>
                 <button class="view-btn" style="padding: 4px 8px; font-size:12px;" data-minute-view="${escapeGalleryText(item.id)}">View</button>
+                ${renderDocumentAttachmentLinks(getMinuteAttachments(item), 'minute-attachment-links')}
             </td>
             <td>
                 <button class="pdf-icon-btn" data-minute-pdf="${escapeGalleryText(item.id)}" title="Get File as PDF">📄 PDF</button>
@@ -2890,35 +2964,24 @@ async function submitDocumentUploadForm(event) {
     const uploadedBy = document.getElementById('uploadName')?.value.trim() || 'Authorized Officer';
     const editingId = form ? form.getAttribute("data-editing-id") : null;
     const existing = editingId ? getMinutes().find(item => String(item.id) === String(editingId)) : null;
+    const selectedFiles = fileInput?.files || [];
 
-    if (!dateValue || !venueValue || (!editingId && !fileInput?.files?.length)) {
-        alert('Please provide a date, venue, and minutes file.');
-        return;
-    }
-
-    const file = fileInput?.files?.[0];
-    if (file && file.size > 10 * 1024 * 1024) {
-        alert('The minutes file must be 10 MB or smaller.');
+    if (!dateValue || !venueValue || (!editingId && !selectedFiles.length)) {
+        alert('Please provide a date, venue, and at least one minutes file.');
         return;
     }
 
     try {
-        let fileUrl = existing?.fileData || '';
-        if (file) {
-            fileUrl = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(new Error('Unable to read the selected minutes file.'));
-                reader.readAsDataURL(file);
-            });
-        }
+        const attachments = selectedFiles.length
+            ? await readDocumentAttachments(selectedFiles, existing?.attachments || [])
+            : (existing?.attachments || []);
 
         const payload = {
             date_time: new Date(dateValue).toISOString(),
             venue: venueValue,
             attendees: attendeesValue,
             agenda: agendaValue,
-            file_url: fileUrl,
+            file_url: JSON.stringify(attachments),
             uploaded_by: uploadedBy
         };
         const response = await fetch(editingId ? `/api/minutes/${encodeURIComponent(editingId)}` : '/api/minutes', {
@@ -3090,6 +3153,75 @@ async function sendPasswordEmail(recipientEmail, recipientName, token) {
   } catch (err) {
     console.error("Email send error:", err);
     alert("Failed to send email: " + (err.text || err.message));
+  }
+}
+
+async function uploadGalleryImage(e) {
+  e.preventDefault();
+
+  const title = document.getElementById('gallery-title').value.trim();
+  const description = document.getElementById('gallery-desc').value.trim();
+  const fileInput = document.getElementById('gallery-file');
+  const files = fileInput.files;
+
+  if (!files || files.length === 0) {
+    alert("Tafadhali chagua angalau picha moja.");
+    return;
+  }
+
+  const btn = document.getElementById('btn-upload-img');
+  btn.disabled = true;
+  btn.innerText = `Ina-upload picha (${files.length})...`;
+
+  try {
+    // Pitia kila picha iliyochaguliwa moja baada ya nyingine
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `mrt_gallery_${Date.now()}_${i}.${fileExt}`;
+      const filePath = `slideshow/${fileName}`;
+
+      // 1. Upload picha kwenye Supabase Storage
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('gallery-photos')
+        .upload(filePath, file);
+
+      if (storageError) throw storageError;
+
+      // 2. Pata Public URL ya picha
+      const { data: urlData } = supabase.storage
+        .from('gallery-photos')
+        .getPublicUrl(filePath);
+
+      const imageUrl = urlData.publicUrl;
+
+      // Kama umechagua picha nyingi, unaweza kuongeza namba pembeni ya title (mfano: Tukio (1), Tukio (2))
+      const imgTitle = files.length > 1 ? `${title} (${i + 1})` : title;
+
+      // 3. Hifadhi taarifa kwenye Database Table ya 'gallery'
+      const { error: dbError } = await supabase
+        .from('gallery')
+        .insert([
+          {
+            title: imgTitle,
+            description: description,
+            image_url: imageUrl,
+            created_at: new Date()
+          }
+        ]);
+
+      if (dbError) throw dbError;
+    }
+
+    alert(`🎉 Picha ${files.length} zimefanikiwa kuongezwa kwenye Slideshow!`);
+    document.getElementById('admin-upload-gallery-form').reset();
+
+  } catch (err) {
+    console.error("Upload Error:", err);
+    alert("❌ Imefeli ku-upload picha: " + (err.message || err));
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "📤 Upload & Ongeza kwenye Slideshow";
   }
 }
 

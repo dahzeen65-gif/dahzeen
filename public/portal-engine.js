@@ -233,6 +233,61 @@ function getReportAttachments(report) {
         : parseDocumentAttachments(report.photo, 'Report attachment');
 }
 
+function formatReportSessions(text) {
+    const cleanText = String(text || '')
+        .replace(/^Description:\s*/i, '')
+        .replace(/\s+(?=(?:[1-6]\.\s+(?:Introduction|Objectives|Topics\s+Covered|Key\s+Lessons|Relevance|Recommendations)\b|3\.[1-4]\s+[A-Za-z]))/gi, '\n')
+        .trim();
+    if (!cleanText) return '<p class="report-session-empty">No additional details provided.</p>';
+
+    const groups = [];
+    let current = { title: 'Report details', lines: [] };
+    const headingPattern = /^\s*(\d+(?:\.\d+)*\.?)\s+(.+?)\s*$/;
+
+    for (const line of cleanText.split(/\r?\n/)) {
+        const heading = line.match(headingPattern);
+        if (heading) {
+            if (current.lines.length || current.title !== 'Report details') groups.push(current);
+            current = { title: `${heading[1]} ${heading[2]}`, lines: [] };
+        } else {
+            current.lines.push(line);
+        }
+    }
+    groups.push(current);
+
+    return groups.map(group => {
+        const body = [];
+        let listItems = [];
+        const flushList = () => {
+            if (listItems.length) {
+                body.push(`<ul>${listItems.join('')}</ul>`);
+                listItems = [];
+            }
+        };
+
+        group.lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                flushList();
+                return;
+            }
+            const bullet = trimmed.match(/^[-•]\s+(.+)$/);
+            if (bullet) {
+                listItems.push(`<li>${escapeGalleryText(bullet[1])}</li>`);
+            } else {
+                flushList();
+                body.push(`<p>${escapeGalleryText(trimmed)}</p>`);
+            }
+        });
+        flushList();
+
+        return `<section class="report-session">
+            <h3>${escapeGalleryText(group.title)}</h3>
+            ${body.join('') || '<p>No details provided.</p>'}
+        </section>`;
+    }).join('');
+}
+
 function getMinuteAttachments(record) {
     return record.attachments?.length
         ? record.attachments
@@ -1433,6 +1488,9 @@ function renderReportsTable() {
             <td>${escapeGalleryText(r.dateFiled)}</td>
             <td>${escapeGalleryText(r.filedBy)}</td>
             <td>
+                <button class="action-btn-purple" data-report-view="${escapeGalleryText(r.id)}" title="Read Report">
+                    <i class="fas fa-book-open"></i>
+                </button>
                 <button class="delete-row-btn" data-report-delete="${escapeGalleryText(r.id)}" title="Delete Report">
                     <i class="fas fa-trash-alt"></i>
                 </button>
@@ -1440,6 +1498,9 @@ function renderReportsTable() {
         </tr>
     `).join('');
 
+    tableBody.querySelectorAll('[data-report-view]').forEach(button => {
+        button.addEventListener('click', () => viewReportDocument(button.dataset.reportView));
+    });
     tableBody.querySelectorAll('[data-report-delete]').forEach(button => {
         button.addEventListener('click', () => deleteReportRecord(button.dataset.reportDelete));
     });
@@ -1512,6 +1573,11 @@ function printReports() {
                 th { background-color: #4CAF50; color: white; }
                 tr:nth-child(even) { background-color: #f2f2f2; }
                 .report-detail { margin: 20px 0; padding: 15px; border-left: 4px solid #4CAF50; background: #f9f9f9; }
+                .report-session { margin: 12px 0; padding: 12px 14px; border: 1px solid #e8e1ef; border-left: 4px solid #7950a1; border-radius: 8px; background: #fff; break-inside: avoid; }
+                .report-session h3 { margin: 0 0 8px; color: #4a2673; font-size: 16px; }
+                .report-session p { margin: 0 0 8px; white-space: pre-wrap; }
+                .report-session p:last-child { margin-bottom: 0; }
+                .report-session ul { margin: 0; padding-left: 22px; }
                 @media print {
                     body { margin: 0; }
                 }
@@ -1564,12 +1630,12 @@ function printReports() {
             htmlContent += `<p><strong>Activity Date:</strong> ${escapeGalleryText(r.actDate)}</p>`;
             htmlContent += `<p><strong>Participants:</strong> ${escapeGalleryText(r.participants)}</p>`;
             htmlContent += `<p><strong>Budget:</strong> KES ${escapeGalleryText(r.budget)}</p>`;
-            htmlContent += `<p><strong>Description:</strong> ${escapeGalleryText(r.description)}</p>`;
+            htmlContent += `<h4>Description and sessions</h4>${formatReportSessions(r.description)}`;
         } else {
             htmlContent += `<p><strong>Incident Type:</strong> ${escapeGalleryText(r.incType)}</p>`;
             htmlContent += `<p><strong>Location:</strong> ${escapeGalleryText(r.incLoc)}</p>`;
             htmlContent += `<p><strong>Date & Time:</strong> ${escapeGalleryText(r.incDate)}</p>`;
-            htmlContent += `<p><strong>Description:</strong> ${escapeGalleryText(r.description)}</p>`;
+            htmlContent += `<h4>Description and sessions</h4>${formatReportSessions(r.description)}`;
             htmlContent += `<p><strong>Injuries:</strong> ${escapeGalleryText(r.injuries || 'None reported')}</p>`;
             htmlContent += `<p><strong>Damage:</strong> ${escapeGalleryText(r.damage || 'None reported')}</p>`;
             htmlContent += `<p><strong>Actions Taken:</strong> ${escapeGalleryText(r.actions)}</p>`;
@@ -1628,6 +1694,9 @@ function renderDocumentsReportsTable() {
             <td>${escapeGalleryText(r.filedBy)}</td>
             <td>${escapeGalleryText(r.type.includes('Activity') ? (r.actDate || '-') : (r.incDate || '-'))}</td>
             <td>
+                <button class="action-btn-purple" data-report-view="${escapeGalleryText(r.id)}" title="Read Report">
+                    <i class="fas fa-book-open"></i>
+                </button>
                 <button class="action-btn-purple" data-report-edit="${escapeGalleryText(r.id)}" title="Edit Report">
                     <i class="fas fa-edit"></i>
                 </button>
@@ -1635,6 +1704,9 @@ function renderDocumentsReportsTable() {
         </tr>
     `).join('');
 
+    tableBody.querySelectorAll('[data-report-view]').forEach(button => {
+        button.addEventListener('click', () => viewReportDocument(button.dataset.reportView));
+    });
     tableBody.querySelectorAll('[data-report-edit]').forEach(button => {
         button.addEventListener('click', () => openEditReportForm(button.dataset.reportEdit));
     });
@@ -2715,7 +2787,7 @@ function openMrtDocumentView(title, subtitle, sections, attachments = [], autoPr
     const sectionMarkup = sections.map(section => `
         <section class="document-section">
             <h2>${escapeGalleryText(section.title)}</h2>
-            <div class="section-content">${escapeGalleryText(section.content || 'Not provided')}</div>
+            <div class="section-content">${section.html || escapeGalleryText(section.content || 'Not provided')}</div>
         </section>
     `).join('');
     const attachmentMarkup = attachments.length
@@ -2751,6 +2823,13 @@ function openMrtDocumentView(title, subtitle, sections, attachments = [], autoPr
                 .document-section { margin: 24px 0; break-inside: avoid; }
                 .document-section h2 { margin: 0 0 10px; padding-bottom: 7px; border-bottom: 1px solid #e5deed; color: #4a2673; font-size: 16px; }
                 .section-content { padding: 14px 16px; border-left: 3px solid #9b78bd; border-radius: 0 8px 8px 0; background: #f8f6fa; white-space: pre-wrap; overflow-wrap: anywhere; }
+                .report-session { margin: 0 0 14px; padding: 14px 16px; border: 1px solid #e8e1ef; border-left: 4px solid #7950a1; border-radius: 8px; background: #fff; }
+                .report-session:last-child { margin-bottom: 0; }
+                .report-session h3 { margin: 0 0 8px; color: #4a2673; font-size: 16px; }
+                .report-session p { margin: 0 0 8px; white-space: pre-wrap; }
+                .report-session p:last-child { margin-bottom: 0; }
+                .report-session ul { margin: 0; padding-left: 22px; }
+                .report-session-empty { margin: 0; }
                 .attachment-list { display: grid; gap: 8px; }
                 .attachment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px; border: 1px solid #e9e5ed; border-radius: 8px; }
                 .attachment-row span { flex: 1 1 220px; overflow-wrap: anywhere; }
@@ -2786,6 +2865,42 @@ function openMrtDocumentView(title, subtitle, sections, attachments = [], autoPr
     documentWindow.focus();
     if (autoPrint) setTimeout(() => documentWindow.print(), 500);
     return documentWindow;
+}
+
+function viewReportDocument(id) {
+    const report = getReports().find(item => String(item.id) === String(id));
+    if (!report) {
+        alert('Report record not found.');
+        return;
+    }
+
+    const isActivity = String(report.type || '').includes('Activity');
+    const details = [
+        `Type: ${report.type || 'Report'}`,
+        `Date filed: ${report.dateFiled || 'Not provided'}`,
+        `Filed by: ${report.filedBy || 'Not provided'}`,
+        isActivity
+            ? `Activity date: ${report.actDate || 'Not provided'}\nParticipants: ${report.participants || 'Not provided'}\nBudget: ${report.budget || 'Not provided'}`
+            : `Incident date: ${report.incDate || 'Not provided'}\nIncident type: ${report.incType || 'Not provided'}\nLocation: ${report.incLoc || 'Not provided'}`
+    ];
+    const sections = [
+        { title: 'Report information', content: details.join('\n') },
+        { title: 'Description and sessions', html: formatReportSessions(report.description) }
+    ];
+
+    if (!isActivity) {
+        sections.push({
+            title: 'Response details',
+            content: `Injuries: ${report.injuries || 'None reported'}\nProperty damage: ${report.damage || 'None reported'}\nActions taken: ${report.actions || 'Not provided'}\nStatus: ${report.status || 'Not provided'}`
+        });
+    }
+
+    openMrtDocumentView(
+        report.title || 'MRT Report',
+        `${report.type || 'Report'} · ${report.dateFiled || 'Date not provided'}`,
+        sections,
+        getReportAttachments(report)
+    );
 }
 
 function viewMinutesDocument(id) {

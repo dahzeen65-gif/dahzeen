@@ -239,3 +239,89 @@ function formatReportIntoCleanSessions(text) {
   // Funga div ya kwanza iliyofunguliwa
   return '<div class="p-3 mb-3 bg-light rounded-4 border-start border-primary border-4 shadow-sm">' + formatted + '</div>';
 }
+
+function renderStructuredReport(report) {
+  const rawDesc = report.description || "";
+
+  return `
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+      <!-- Report Header -->
+      <div class="border-bottom pb-3 mb-4">
+        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-bold mb-2">
+          ${report.type || 'Activity Report'}
+        </span>
+        <h3 class="fw-bold text-dark mb-2">${report.title}</h3>
+        <div class="d-flex flex-wrap gap-3 text-muted small">
+          <span>📅 <strong>Tarehe:</strong> ${report.date_filed || report.activity_date || 'N/A'}</span>
+          <span>👥 <strong>Walioshiriki:</strong> ${report.participants || 'N/A'}</span>
+          <span>✍️ <strong>Imetolewa na:</strong> ${report.filed_by || 'MRT Team'}</span>
+        </div>
+      </div>
+
+      <!-- Structured Activity Sessions & Spacing -->
+      <div class="report-body text-secondary">
+        ${formatReportIntoCleanSessions(rawDesc)}
+      </div>
+    </div>
+  `;
+}
+
+function formatReportIntoCleanSessions(text) {
+  if (!text) return '<p class="text-muted">Hakuna maelezo ya ziada.</p>';
+
+  let cleanText = text.replace(/^Description:\s*/i, '').trim();
+
+  // 1. Weka alama za kipekee kwenye vichwa vikuu ili kuzuia kugongana na namba za ndani
+  let formatted = cleanText
+    .replace(/1\.\s+Introduction/g, '---SECTION_1---')
+    .replace(/2\.\s+Objectives(?:\s+of\s+the\s+Training)?/g, '---SECTION_2---')
+    .replace(/3\.\s+Topics\s+Covered/g, '---SECTION_3---')
+    .replace(/4\.\s+Key\s+Lessons(?:\s+Learned)?/g, '---SECTION_4---')
+    .replace(/5\.\s+Relevance(?:\s+to[^\.]+?)?(?=\s+6\.|$)/g, '---SECTION_5---')
+    .replace(/6\.\s+Recommendations/g, '---SECTION_6---');
+
+  let parts = formatted.split('---SECTION_');
+  let html = '';
+
+  let titles = {
+    '1': '1. Introduction',
+    '2': '2. Objectives of the Training',
+    '3': '3. Topics Covered',
+    '4': '4. Key Lessons Learned',
+    '5': '5. Relevance to Miritini Response Team',
+    '6': '6. Recommendations'
+  };
+
+  let colors = {
+    '1': 'border-primary',
+    '2': 'border-success',
+    '3': 'border-warning',
+    '4': 'border-info',
+    '5': 'border-danger',
+    '6': 'border-secondary'
+  };
+
+  parts.forEach(part => {
+    if (!part.trim()) return;
+    let sectionNum = part.charAt(0);
+    let sectionContent = part.substring(2).trim();
+
+    // 2. Safisha vijisehemu (3.1, 3.2, n.k.) na uweke alama za bullet kwa usahihi
+    sectionContent = sectionContent
+      .replace(/(3\.[1-4]\s+[A-Za-z\s]+)/g, '<br><strong class="text-primary mt-2 d-inline-block">$1</strong>')
+      .replace(/-\s+/g, '<br>&bull; ');
+
+    if (titles[sectionNum]) {
+      html += `
+        <div class="p-3 mb-3 bg-light rounded-4 border-start ${colors[sectionNum]} border-4 shadow-sm">
+          <h5 class="fw-bold text-dark mb-2">📌 ${titles[sectionNum]}</h5>
+          <p class="text-secondary mb-0" style="line-height: 1.8; white-space: pre-line;">${sectionContent}</p>
+        </div>
+      `;
+    } else {
+      html += `<p class="text-secondary" style="line-height: 1.8;">${part}</p>`;
+    }
+  });
+
+  return html || `<p class="text-secondary" style="line-height: 1.8;">${cleanText}</p>`;
+}

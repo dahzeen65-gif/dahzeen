@@ -252,7 +252,7 @@
 
     <section id="dues-form-section" class="dues-card" style="display: none;">
         <h2>Submit a Monthly Contribution</h2>
-        <p>Pay KES 200 using M-Pesa Paybill <strong>522522</strong>. Enter your MRT member account number as the account reference, then submit that member number and the M-Pesa transaction code here. Contributions remain pending until verified by MRT.</p>
+        <p>Enter your MRT member account number and M-Pesa phone. We’ll send a KES 200 payment prompt to that phone. Enter your M-Pesa PIN to authorize the payment.</p>
         <form id="monthly-dues-form">
             <div class="form-group">
                 <label for="dues-member-id">Member email or account number</label>
@@ -262,12 +262,8 @@
                 <label for="dues-phone">M-Pesa phone number</label>
                 <input type="tel" id="dues-phone" required maxlength="20" placeholder="e.g. 0712345678" autocomplete="tel">
             </div>
-            <div class="form-group">
-                <label for="dues-reference">M-Pesa transaction code</label>
-                <input type="text" id="dues-reference" required minlength="6" maxlength="20" pattern="[A-Za-z0-9]{6,20}" autocomplete="off">
-            </div>
             <p id="dues-status" class="form-status" role="status" aria-live="polite"></p>
-            <button type="submit" class="submit-btn">Submit for Verification</button>
+            <button type="submit" class="submit-btn">Send KES 200 M-Pesa Prompt</button>
         </form>
     </section>
 
@@ -477,30 +473,64 @@
         const status = document.getElementById('dues-status');
         const submitButton = form.querySelector('[type="submit"]');
         if (submitButton) submitButton.disabled = true;
-        status.textContent = 'Submitting contribution for verification…';
+        status.textContent = 'Requesting M-Pesa PIN prompt…';
         status.style.color = '';
 
         try {
-            const response = await fetch('/api/member-contributions', {
+            const response = await fetch('/api/member-contributions/stk-push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     memberId: document.getElementById('dues-member-id').value.trim(),
-                    phone: document.getElementById('dues-phone').value.trim(),
-                    mpesaReference: document.getElementById('dues-reference').value.trim()
+                    phone: document.getElementById('dues-phone').value.trim()
                 })
             });
             const result = await response.json();
             if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Unable to record your contribution.');
             }
-            form.reset();
-            status.textContent = 'Contribution submitted. It will show as pending until MRT verifies the M-Pesa transaction.';
-            status.style.color = '#2e7d32';
+            status.textContent = 'M-Pesa prompt sent. Check your phone and enter your PIN to pay KES 200.';
+            status.style.color = '#1b7f35';
+            if (submitButton) submitButton.disabled = true;
+            await waitForContributionStatus(result.data.statusToken, status, submitButton);
         } catch (error) {
             console.error('Could not submit member contribution:', error);
-            status.textContent = error.message || 'Unable to record your contribution. Please try again.';
+            status.textContent = error.message || 'Could not start the M-Pesa payment. Check your phone before trying again.';
             status.style.color = '#b00020';
+            if (submitButton) submitButton.disabled = false;
+        }
+    }
+
+    async function waitForContributionStatus(statusToken, status, submitButton) {
+        const terminalStatuses = new Set(['Paid', 'Failed', 'Review Required']);
+        try {
+            for (let attempt = 0; attempt < 24; attempt += 1) {
+                await new Promise(resolve => setTimeout(resolve, 2500));
+                const response = await fetch(`/api/member-contributions/status/${encodeURIComponent(statusToken)}`);
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Unable to check M-Pesa payment status.');
+                }
+                if (result.data.status === 'Paid') {
+                    status.textContent = 'Payment received and confirmed. Thank you.';
+                    status.style.color = '#1b7f35';
+                    document.getElementById('monthly-dues-form').reset();
+                    return;
+                }
+                if (terminalStatuses.has(result.data.status)) {
+                    status.textContent = result.data.status === 'Review Required'
+                        ? 'M-Pesa reported a payment but some details need manual review. Please contact MRT before retrying.'
+                        : 'The M-Pesa payment was not completed. You can try again.';
+                    status.style.color = '#b00020';
+                    return;
+                }
+            }
+            status.textContent = 'The PIN prompt is still awaiting confirmation. Check your phone; if it has expired, you can request another prompt.';
+            status.style.color = '#8a5a00';
+        } catch (error) {
+            console.error('Could not check M-Pesa payment status:', error);
+            status.textContent = 'The prompt was sent, but payment status could not be confirmed. Check your phone and contact MRT before retrying.';
+            status.style.color = '#8a5a00';
         } finally {
             if (submitButton) submitButton.disabled = false;
         }

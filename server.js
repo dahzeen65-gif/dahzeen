@@ -29,6 +29,70 @@ const contributionLimiter = rateLimit({
     message: { success: false, message: 'Too many contribution submissions. Please try again later.' }
 });
 
+const contributionStatusLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 45,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many payment status checks. Please wait and try again.' }
+});
+
+function getMpesaConfiguration() {
+    const environment = process.env.MPESA_ENVIRONMENT || 'sandbox';
+    if (!['sandbox', 'production'].includes(environment)) {
+        throw new Error('MPESA_ENVIRONMENT must be sandbox or production.');
+    }
+    const config = {
+        baseUrl: environment === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke',
+        consumerKey: process.env.MPESA_CONSUMER_KEY,
+        consumerSecret: process.env.MPESA_CONSUMER_SECRET,
+        shortcode: process.env.MPESA_SHORTCODE,
+        passkey: process.env.MPESA_PASSKEY,
+        callbackUrl: process.env.MPESA_CALLBACK_URL
+    };
+    if (!config.consumerKey || !config.consumerSecret || !config.shortcode || !config.passkey ||
+        !config.callbackUrl || !config.callbackUrl.startsWith('https://')) {
+        throw new Error('M-Pesa Daraja credentials and a public HTTPS callback URL are required.');
+    }
+    return config;
+}
+
+function normalizeMpesaPhone(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (/^0[17]\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
+    if (/^[17]\d{8}$/.test(digits)) return `254${digits}`;
+    if (/^254[17]\d{8}$/.test(digits)) return digits;
+    return null;
+}
+
+function mpesaTimestamp() {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Africa/Nairobi',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23'
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
+}
+
+async function requestMpesaAccessToken(config) {
+    const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64');
+    const response = await fetch(`${config.baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+        headers: { Authorization: `Basic ${credentials}` },
+        signal: AbortSignal.timeout(10000)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.access_token) {
+        throw new Error('Unable to authenticate with M-Pesa Daraja.');
+    }
+    return result.access_token;
+}
+
 function getTokenFromRequest(req) {
     const cookies = Object.fromEntries(
         (req.headers.cookie || '')
@@ -800,25 +864,33 @@ app.post('/api/applicants', async (req, res) => {
     }
 });
 
-app.post('/api/member-contributions', contributionLimiter, async (req, res) => {
+app.post('/api/member-contributions/stk-push', contributionLimiter, async (req, res) => {
     if (!supabase.isConfigured) return supabaseUnavailable(res);
     const memberId = String(req.body?.memberId || '').trim();
     const phone = String(req.body?.phone || '').trim();
-    const mpesaReference = String(req.body?.mpesaReference || '').trim().toUpperCase();
+    const normalizedPhone = normalizeMpesaPhone(phone);
     const isEmail = memberId.includes('@');
     const validMemberId = isEmail
         ? /^[A-Z0-9._+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(memberId)
         : /^[A-Z0-9-]{1,50}$/i.test(memberId);
-    const phoneDigits = phone.replace(/\D/g, '').length;
-    if (!validMemberId || memberId.length > 254 ||
-        !/^\+?[\d\s()-]{7,20}$/.test(phone) || phoneDigits < 9 || phoneDigits > 15 ||
-        !/^[A-Z0-9]{6,20}$/.test(mpesaReference)) {
+    if (!validMemberId || memberId.length > 254 || !normalizedPhone) {
         return res.status(400).json({
             success: false,
-            message: 'Enter a valid member email or account number, phone number, and M-Pesa transaction code.'
+            message: 'Enter a valid member email or account number and Kenyan M-Pesa phone number.'
         });
     }
 
+    let config;
+    try {
+        config = getMpesaConfiguration();
+    } catch (error) {
+        console.error('[M-Pesa] STK Push is not configured:', error.message);
+        return res.status(503).json({ success: false, message: 'M-Pesa payments are not configured yet.' });
+    }
+
+    const statusToken = crypto.randomBytes(32).toString('hex');
+    const statusTokenHash = crypto.createHash('sha256').update(statusToken).digest('hex');
+    let contributionId;
     try {
         const memberQuery = supabase
             .from('applicants')
@@ -835,27 +907,202 @@ app.post('/api/member-contributions', contributionLimiter, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Membership details could not be verified or the account is not active.' });
         }
 
-        const { data, error } = await supabase
+        const pendingSince = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { data: pendingContribution, error: pendingError } = await supabase
+            .from('member_contributions')
+            .select('id')
+            .eq('member_account_no', member.allocated_account_no)
+            .in('status', ['Pending Payment', 'Prompt Sent', 'Review Required'])
+            .gte('submitted_at', pendingSince)
+            .limit(1)
+            .maybeSingle();
+        if (pendingError) {
+            console.error('[Supabase] Could not check for a pending contribution:', pendingError.message);
+            return res.status(500).json({ success: false, message: 'Unable to check pending payments.' });
+        }
+        if (pendingContribution) {
+            return res.status(409).json({ success: false, message: 'A payment prompt is already pending for this member. Check your phone before requesting another.' });
+        }
+
+        const { data: contribution, error: insertError } = await supabase
             .from('member_contributions')
             .insert([{
                 member_account_no: member.allocated_account_no,
-                phone,
-                mpesa_reference: mpesaReference,
-                amount: 200
+                phone: normalizedPhone,
+                amount: 200,
+                status_token_hash: statusTokenHash
             }])
-            .select('id,status,amount,submitted_at')
+            .select('id')
             .single();
-        if (error) {
-            if (error.code === '23505') {
-                return res.status(409).json({ success: false, message: 'This M-Pesa transaction code has already been submitted.' });
-            }
-            console.error('[Supabase] Could not save member contribution:', error.message);
-            return res.status(500).json({ success: false, message: 'Unable to record this contribution.' });
+        if (insertError) {
+            console.error('[Supabase] Could not create pending member contribution:', insertError.message);
+            return res.status(500).json({ success: false, message: 'Unable to start this contribution.' });
         }
-        return res.status(201).json({ success: true, data });
+        contributionId = contribution.id;
+
+        const timestamp = mpesaTimestamp();
+        const password = Buffer.from(`${config.shortcode}${config.passkey}${timestamp}`).toString('base64');
+        const accessToken = await requestMpesaAccessToken(config);
+        const stkResponse = await fetch(`${config.baseUrl}/mpesa/stkpush/v1/processrequest`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                BusinessShortCode: config.shortcode,
+                Password: password,
+                Timestamp: timestamp,
+                TransactionType: 'CustomerPayBillOnline',
+                Amount: 200,
+                PartyA: normalizedPhone,
+                PartyB: config.shortcode,
+                PhoneNumber: normalizedPhone,
+                CallBackURL: config.callbackUrl,
+                AccountReference: member.allocated_account_no,
+                TransactionDesc: 'MRT Monthly Contribution'
+            }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const stkResult = await stkResponse.json();
+        if (!stkResponse.ok || String(stkResult.ResponseCode) !== '0' ||
+            !stkResult.CheckoutRequestID || !stkResult.MerchantRequestID) {
+            const { error: updateError } = await supabase.from('member_contributions')
+                .update({
+                    status: 'Failed',
+                    result_description: String(stkResult.errorMessage || stkResult.ResponseDescription || 'M-Pesa did not accept the payment request.').slice(0, 500)
+                })
+                .eq('id', contribution.id);
+            if (updateError) console.error('[Supabase] Could not record rejected STK Push:', updateError.message);
+            console.error('[M-Pesa] STK Push request rejected:', stkResult.errorMessage || stkResult.ResponseDescription || 'Unknown provider response');
+            return res.status(502).json({ success: false, message: 'M-Pesa could not start the PIN prompt. Please try again.' });
+        }
+
+        const { error: updateError } = await supabase
+            .from('member_contributions')
+            .update({
+                checkout_request_id: stkResult.CheckoutRequestID,
+                merchant_request_id: stkResult.MerchantRequestID,
+                status: 'Prompt Sent'
+            })
+            .eq('id', contribution.id);
+        if (updateError) {
+            console.error('[Supabase] Could not link STK Push request to contribution:', updateError.message);
+            return res.status(500).json({ success: false, message: 'M-Pesa sent the prompt, but the contribution could not be updated. Contact MRT before retrying.' });
+        }
+
+        return res.status(202).json({
+            success: true,
+            message: 'M-Pesa PIN prompt sent.',
+            data: { statusToken, status: 'Prompt Sent' }
+        });
     } catch (error) {
-        console.error('[Supabase] Member contribution submission error:', error.message);
-        return res.status(500).json({ success: false, message: 'Unable to record this contribution.' });
+        console.error('[M-Pesa] STK Push initiation failed:', error.message);
+        if (contributionId) {
+            const { error: updateError } = await supabase
+                .from('member_contributions')
+                .update({
+                    status: 'Review Required',
+                    result_description: 'Unable to confirm whether M-Pesa accepted the payment request.'
+                })
+                .eq('id', contributionId);
+            if (updateError) console.error('[Supabase] Could not mark uncertain contribution for review:', updateError.message);
+        }
+        return res.status(502).json({
+            success: false,
+            message: 'The payment request outcome is uncertain. Check your phone and contact MRT before retrying.'
+        });
+    }
+});
+
+app.get('/api/member-contributions/status/:statusToken', contributionStatusLimiter, async (req, res) => {
+    if (!supabase.isConfigured) return supabaseUnavailable(res);
+    if (!/^[a-f0-9]{64}$/i.test(req.params.statusToken)) {
+        return res.status(404).json({ success: false, message: 'Payment request not found.' });
+    }
+    try {
+        const statusTokenHash = crypto.createHash('sha256').update(req.params.statusToken).digest('hex');
+        const { data, error } = await supabase
+            .from('member_contributions')
+            .select('status,result_description')
+            .eq('status_token_hash', statusTokenHash)
+            .maybeSingle();
+        if (error) {
+            console.error('[Supabase] Could not load member contribution status:', error.message);
+            return res.status(500).json({ success: false, message: 'Unable to check payment status.' });
+        }
+        if (!data) return res.status(404).json({ success: false, message: 'Payment request not found.' });
+        return res.json({
+            success: true,
+            data: { status: data.status, message: data.result_description || '' }
+        });
+    } catch (error) {
+        console.error('[Supabase] Member contribution status error:', error.message);
+        return res.status(500).json({ success: false, message: 'Unable to check payment status.' });
+    }
+});
+
+app.post('/api/mpesa/callback', async (req, res) => {
+    const callback = req.body?.Body?.stkCallback;
+    const checkoutRequestId = callback?.CheckoutRequestID;
+    if (!supabase.isConfigured || typeof checkoutRequestId !== 'string' ||
+        checkoutRequestId.length > 200 || !Number.isInteger(Number(callback?.ResultCode))) {
+        return res.status(400).json({ ResultCode: 1, ResultDesc: 'Invalid callback.' });
+    }
+
+    const resultCode = Number(callback.ResultCode);
+    const metadata = callback.CallbackMetadata?.Item || [];
+    const metadataValue = name => metadata.find(item => item.Name === name)?.Value;
+    const receipt = metadataValue('MpesaReceiptNumber');
+    const amount = Number(metadataValue('Amount'));
+    const paidPhone = String(metadataValue('PhoneNumber') || '');
+
+    try {
+        const { data: contribution, error: lookupError } = await supabase
+            .from('member_contributions')
+            .select('id,phone,amount,status')
+            .eq('checkout_request_id', checkoutRequestId)
+            .maybeSingle();
+        if (lookupError) throw lookupError;
+        if (!contribution) {
+            console.error('[M-Pesa] Callback did not match a contribution:', checkoutRequestId);
+            return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted.' });
+        }
+        if (['Paid', 'Failed', 'Review Required'].includes(contribution.status)) {
+            return res.status(200).json({ ResultCode: 0, ResultDesc: 'Already processed.' });
+        }
+
+        let status;
+        let resultDescription = String(callback.ResultDesc || '').slice(0, 500);
+        let mpesaReference = null;
+        if (resultCode !== 0) {
+            status = 'Failed';
+        } else if (amount !== Number(contribution.amount) ||
+            paidPhone !== contribution.phone.replace(/\D/g, '') ||
+            typeof receipt !== 'string' || !receipt) {
+            status = 'Review Required';
+            resultDescription = 'Successful callback had mismatched amount, phone, or receipt details.';
+            console.error('[M-Pesa] Callback validation mismatch for contribution:', contribution.id);
+        } else {
+            status = 'Paid';
+            mpesaReference = receipt;
+        }
+
+        const { error: updateError } = await supabase
+            .from('member_contributions')
+            .update({
+                status,
+                mpesa_reference: mpesaReference,
+                result_code: resultCode,
+                result_description: resultDescription,
+                completed_at: new Date().toISOString()
+            })
+            .eq('id', contribution.id);
+        if (updateError) throw updateError;
+        return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted.' });
+    } catch (error) {
+        console.error('[M-Pesa] Callback processing failed:', error.message);
+        return res.status(500).json({ ResultCode: 1, ResultDesc: 'Callback processing failed.' });
     }
 });
 
